@@ -1,6 +1,7 @@
 module Main where
 
-import Lib
+import Comms.Eth.Scanner
+import Comms.Eth.Sender
 
 main :: IO ()
-main = someFunc
+main = putStrLn "test"

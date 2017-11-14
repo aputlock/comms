@@ -2,7 +2,7 @@ name:                comms
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/broluwo/comms#readme
+homepage:            https://github.com/aputlock/comms#readme
 license:             MIT
 license-file:        LICENSE
 author:              Brian Oluwo, Andrew Putlock
@@ -15,8 +15,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
+  exposed-modules:     Comms.Eth.Scanner
+                     , Comms.Eth.Sender
+  other-modules:       Comms.Eth.Tools
   build-depends:       base >= 4.7 && < 5
+                     , web3 >= 0.5.5.0
   default-language:    Haskell2010
 
 executable comms-smtp
@@ -38,4 +41,4 @@ test-suite comms-test
 
 source-repository head
   type:     git
-  location: https://github.com/broluwo/comms
+  location: https://github.com/aputlock/comms
