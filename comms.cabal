@@ -17,8 +17,9 @@ library
   hs-source-dirs:      src
   exposed-modules:     Comms.Eth.Scanner
                      , Comms.Eth.Sender
-  other-modules:       Comms.Eth.Tools
                      , Comms.Common.Util
+                     , Comms.Common.Types
+  other-modules:       Comms.Eth.Tools
   build-depends:       base >= 4.7 && < 5
                      , web3 >= 0.5.5.0
                      , text >= 1.2.2.2

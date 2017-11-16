@@ -2,18 +2,11 @@
 
 module Comms.Common.Util where
 
+import           Comms.Common.Types
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as B
 import           GHC.Generics
 import           Network.Ethereum.Web3.Address
-
-data Config = Config
-  { walletId :: !Address
-  } deriving (Show, Generic)
-
-instance FromJSON Config
-
-instance ToJSON Config
 
 getDefaultConfig :: IO Config
 getDefaultConfig = getConfig "config.json"
@@ -24,6 +17,9 @@ getConfig path = do
   case d of
     Left err  -> error $ "bad config: " ++ err
     Right cfg -> return cfg
+
+getConfigFromOptions :: Options -> IO Config
+getConfigFromOptions opt = getConfig (config opt)
 
 fromRight :: Either String b -> b
 fromRight e =
