@@ -3,7 +3,7 @@ version:             0.1.0.0
 -- synopsis:
 -- description:
 homepage:            https://github.com/aputlock/comms#readme
-license:             MIT
+license:             BSD3
 license-file:        LICENSE
 author:              Brian Oluwo, Andrew Putlock
 maintainer:          broluwo@terpmail.umd.edu, aputlock@terpmail.umd.edu
@@ -48,4 +48,4 @@ test-suite comms-test
 
 source-repository head
   type:     git
-  location: https://github.com/aputlock/covertcomms
+  location: https://github.com/aputlock/comms
