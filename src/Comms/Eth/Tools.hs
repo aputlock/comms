@@ -1,10 +1,10 @@
 module Comms.Eth.Tools where
 
-import Control.Monad.IO.Class
-import Network.Ethereum.Web3
-import Network.Ethereum.Web3.Eth
-import Network.Ethereum.Web3.Types
-import Network.Ethereum.Web3.TH
+import           Control.Monad.IO.Class
+import           Network.Ethereum.Web3
+import           Network.Ethereum.Web3.Eth
+import           Network.Ethereum.Web3.TH
+import           Network.Ethereum.Web3.Types
 
 getFirstBalance :: MonadIO m => m (Either Web3Error Text)
 getFirstBalance = do
@@ -14,4 +14,4 @@ getFirstBalance = do
 
 extractList :: (Either Web3Error [a]) -> [a]
 extractList (Right e) = e
-extractList (Left _) = [] -- handle error instead
+extractList (Left _)  = [] -- handle error instead
