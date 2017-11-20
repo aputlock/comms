@@ -1,12 +1,11 @@
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Comms.Common.Types
 import           Comms.Common.Util
 import           Comms.Eth.Scanner
 import           Comms.Eth.Sender
-import           Control.Monad
-import           Data.Aeson             ((.:), (.=))
-import qualified Data.Aeson             as JSON
 import           System.Console.CmdArgs
 
 -- TODO(broluwo): Consider writing a generator function for creating the config file.
@@ -26,4 +25,7 @@ options =
   summary "Comms v0.0.0, (c) Brian Oluwo, Andrew Putlock"
 
 main :: IO ()
-main = print =<< getConfigFromOptions =<< cmdArgsRun options
+main = do
+  opts <- cmdArgsRun options
+  config <- getConfigFromOptions opts
+  print config

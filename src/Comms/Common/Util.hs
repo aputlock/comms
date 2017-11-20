@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Comms.Common.Util where
 
 import           Comms.Common.Types
@@ -13,7 +11,7 @@ getDefaultConfig = getConfig "config.json"
 
 getConfig :: FilePath -> IO Config
 getConfig path = do
-  d <- (eitherDecode <$> (B.readFile path)) :: IO (Either String Config)
+  d <- (eitherDecode <$> B.readFile path) :: IO (Either String Config)
   case d of
     Left err  -> error $ "bad config: " ++ err
     Right cfg -> return cfg
