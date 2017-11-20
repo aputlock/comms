@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Comms.Eth.Cost where
 
 import           Control.Monad.IO.Class
@@ -18,25 +20,25 @@ import           Numeric
 
 import           Comms.Common.Types
 import           Comms.Common.Util
+import           Comms.Eth.Provider
 
 -- Current address of deployed smart contract
 contractAddr :: Address
-contractAddr =
-  fromRight $ fromText $ T.pack "0x4d9602D0c78096788d7B2A12cC6Dba891F1f21cA"
+contractAddr = "0x4d9602D0c78096788d7B2A12cC6Dba891F1f21cA"
 
 -- Returns registered account balance in Wei
 getMyBalance :: MonadIO m => m Wei
 getMyBalance = do
   cfg <- liftIO $ getDefaultConfig
-  bal <- runWeb3 $ getBalance (walletId cfg) Latest
+  bal <- runUser $ getBalance (walletAddr cfg) Latest
   return $ textToWei bal
 
 -- Returns estimated cost of function call in Wei
 estimateCost :: MonadIO m => IO Call -> m Wei
 estimateCost c = do
   cl <- liftIO c
-  txtGas <- runWeb3 $ estimateGas cl
-  txtPrice <- runWeb3 $ gasPrice
+  txtGas <- runUser $ estimateGas cl
+  txtPrice <- runUser $ gasPrice
   return $ (textToWei txtGas * textToWei txtPrice)
 
 -- Unsafely parses hex text into Wei value
@@ -61,7 +63,7 @@ getCall ab methodName = do
   contract <- ab
   return $
     Call
-    { callFrom = Just $ walletId cfg
+    { callFrom = Just $ walletAddr cfg
     , callTo = contractAddr
     , callGas = Nothing
     , callGasPrice = Nothing
@@ -69,7 +71,7 @@ getCall ab methodName = do
     , callData =
         Just $
         T.justifyLeft 74 '0' $ methodId $ findDecl methodName $ unABI contract
-             --  ^ concat(sha3(methodname), justifyRight(args)) **currently ignoring args
+    --  ^ concat(sha3(methodname), justifyRight(args)) **currently ignoring args
     }
 
 -- Returns the Declaration with the given name

@@ -18,9 +18,10 @@ data Options = Options
 
 -- | Defines the schema for the config file.
 data Config = Config
-  { walletId :: !Address
+  { walletAddr :: !Address
   , smtpPort :: Int
   , imapPort :: Int
+  , serverURL  :: Maybe String
   } deriving (Show, Generic)
 
 instance FromJSON Config

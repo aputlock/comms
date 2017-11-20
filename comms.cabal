@@ -20,6 +20,7 @@ library
                      , Comms.Common.Util
                      , Comms.Common.Types
   other-modules:       Comms.Eth.Cost
+                     , Comms.Eth.Provider
   build-depends:       base >= 4.7 && < 5
                      , web3 >= 0.5.5.0
                      , RSA >= 2.3.0
