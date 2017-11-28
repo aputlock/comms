@@ -1,13 +1,38 @@
 module Comms.Common.Util where
 
-import           Comms.Common.Types
+import qualified Codec.Crypto.RSA.Pure         as RSA
+import           Crypto.Random
+import           Crypto.Types.PubKey.RSA
 import           Data.Aeson
+import           Data.ASN1.BinaryEncoding
+import           Data.ASN1.Encoding
+import           Data.ASN1.Object
 import qualified Data.ByteString.Lazy          as B
+import qualified Data.ByteString.Lazy.Char8    as C
+import           Data.Maybe
 import           GHC.Generics
 import           Network.Ethereum.Web3.Address
 
+import           Comms.Common.Types
+
+-- General Utilities
+
+fromRight :: Show s => Either s b -> b
+fromRight e =
+  case e of
+    Left err  -> error $ show err
+    Right val -> val
+
+-- Config Utilities
+
+defaultConfig :: String
+defaultConfig = "config.json"
+
+defaultKeyFile :: String
+defaultKeyFile = "rsa.key"
+
 getDefaultConfig :: IO Config
-getDefaultConfig = getConfig "config.json"
+getDefaultConfig = getConfig defaultConfig
 
 getConfig :: FilePath -> IO Config
 getConfig path = do
@@ -19,8 +44,37 @@ getConfig path = do
 getConfigFromOptions :: Options -> IO Config
 getConfigFromOptions opt = getConfig (config opt)
 
-fromRight :: Either String b -> b
-fromRight e =
-  case e of
-    Left err  -> error err
-    Right val -> val
+writeConfig :: FilePath -> Config -> IO ()
+writeConfig path cfg = B.writeFile path $ encode cfg
+
+writeKeyPair :: FilePath -> PrivateKey -> IO ()
+writeKeyPair path key = B.writeFile path $ encodeASN1 DER $ toASN1 key []
+
+getKeyPair :: FilePath -> IO PrivateKey
+getKeyPair path = do
+  bytes <- B.readFile path
+  return $ fst $ fromRight $ fromASN1 $ fromRight $ decodeASN1 DER bytes
+
+genKeyPair :: IO PrivateKey
+genKeyPair = do
+  gen <- newGenIO :: IO SystemRandom
+  return $ case RSA.generateKeyPair gen 4096 of
+    Left err           -> error $ show err
+    Right (_, priv, _) -> priv
+
+-- Hard-fail wrapper for RSA encrypt
+encrypt :: String -> PublicKey -> IO String
+encrypt plain key = do
+  gen <- newGenIO :: IO SystemRandom
+  return $ C.unpack $ fst $ fromRight $ RSA.encrypt gen key $ C.pack plain
+
+-- Hard-fail wrapper for RSA decrypt
+decrypt :: String -> PrivateKey -> String
+decrypt ciph key = C.unpack $ fromRight $ RSA.decrypt key $ C.pack ciph
+
+-- High-level decrypt function
+decryptMessage :: String -> IO String
+decryptMessage ciph = do
+  cfg <- getDefaultConfig
+  key <- getKeyPair $ fromMaybe "rsa.key" $ keyFile cfg
+  return $ decrypt ciph key

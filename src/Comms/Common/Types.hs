@@ -22,6 +22,7 @@ data Config = Config
   , smtpPort :: Int
   , imapPort :: Int
   , serverURL  :: Maybe String
+  , keyFile    :: Maybe FilePath
   } deriving (Show, Generic)
 
 instance FromJSON Config
