@@ -9,9 +9,11 @@ import           Data.ASN1.Encoding
 import           Data.ASN1.Object
 import qualified Data.ByteString.Lazy          as B
 import qualified Data.ByteString.Lazy.Char8    as C
+import           Data.List
 import           Data.Maybe
 import           GHC.Generics
 import           Network.Ethereum.Web3.Address
+import           System.Directory
 
 import           Comms.Common.Types
 
@@ -31,6 +33,12 @@ defaultConfig = "config.json"
 defaultKeyFile :: String
 defaultKeyFile = "rsa.key"
 
+contractFile :: String
+contractFile = "solidity/contract.json"
+
+contactFile :: String
+contactFile = "contacts.json"
+
 getDefaultConfig :: IO Config
 getDefaultConfig = getConfig defaultConfig
 
@@ -46,6 +54,31 @@ getConfigFromOptions opt = getConfig (config opt)
 
 writeConfig :: FilePath -> Config -> IO ()
 writeConfig path cfg = B.writeFile path $ encode cfg
+
+getContacts :: FilePath -> IO [Contact]
+getContacts path = do
+  exists <- doesFileExist path
+  if (not exists) then return []
+  else do
+    bytes <- B.readFile path
+    let d =  eitherDecode bytes :: Either String [Contact]
+    case d of
+      Left err  -> error $ "bad contacts: " ++ err
+      Right cfg -> return cfg
+
+lookupContact :: String -> IO (Maybe ContactCard)
+lookupContact email = do
+  contacts <- getContacts contactFile
+  return $ case find (\x -> emailAddr x == email) contacts of
+             Nothing -> Nothing
+             Just contact -> Just $ contactInfo contact
+
+addContact :: FilePath -> Contact -> IO ()
+addContact path contact = do
+  contacts <- getContacts path
+  B.writeFile path $ encode $ contact:contacts
+
+-- Crypto Utilities
 
 writeKeyPair :: FilePath -> PrivateKey -> IO ()
 writeKeyPair path key = B.writeFile path $ encodeASN1 DER $ toASN1 key []

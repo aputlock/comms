@@ -24,7 +24,7 @@ import           Comms.Eth.Provider
 
 -- Current address of deployed smart contract
 contractAddr :: Address
-contractAddr = "0x4d9602D0c78096788d7B2A12cC6Dba891F1f21cA"
+contractAddr = "0x93998F7daF04B6c093255da91f9486c26c2e442c"
 
 -- Returns registered account balance in Wei
 getMyBalance :: MonadIO m => m Wei
@@ -34,9 +34,8 @@ getMyBalance = do
   return $ textToWei bal
 
 -- Returns estimated cost of function call in Wei
-estimateCost :: MonadIO m => IO Call -> m Wei
-estimateCost c = do
-  cl <- liftIO c
+estimateCost :: MonadIO m => Call -> m Wei
+estimateCost cl = do
   txtGas <- runUser $ estimateGas cl
   txtPrice <- runUser $ gasPrice
   return $ (textToWei txtGas * textToWei txtPrice)
@@ -56,11 +55,13 @@ getContract path = do
     Left err  -> error $ "bad contract: " ++ err
     Right cfg -> return cfg
 
+methodHash :: String -> ContractABI -> Text
+methodHash methodName contract = methodId $ findDecl methodName $ unABI contract
+
 -- Builds a Call object for the given contract/method
-getCall :: IO ContractABI -> String -> IO Call
-getCall ab methodName = do
+getCall :: ContractABI -> String -> IO Call
+getCall contract methodName = do
   cfg <- getDefaultConfig
-  contract <- ab
   return $
     Call
     { callFrom = Just $ walletAddr cfg
@@ -70,7 +71,7 @@ getCall ab methodName = do
     , callValue = Nothing
     , callData =
         Just $
-        T.justifyLeft 74 '0' $ methodId $ findDecl methodName $ unABI contract
+        T.justifyLeft 74 '0' $ methodHash methodName contract
     --  ^ concat(sha3(methodname), justifyRight(args)) **currently ignoring args
     }
 
