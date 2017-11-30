@@ -118,5 +118,34 @@ instance Show SMTPReply where
     case n of
       0 -> T.unpack $ (T.append str "\r\n")
       _ -> show n ++ T.unpack (T.append (T.cons ' ' str) "\r\n")
-
 type EnvelopeMVar = TMVar Envelope
+
+data POP3SessionState = UNAUTH
+                      | TRANS
+                      | UPDATE
+                      deriving(Show, Eq)
+
+data POP3Session = POP3Session
+  {
+    sessionState :: POP3SessionState
+  , user         :: T.Text
+  , pass         :: T.Text
+  } deriving(Show, Eq)
+
+data POP3Reply = POP3Reply
+  {
+    status :: POP3ReplyIndicator
+  , text   :: T.Text
+  }
+instance Show POP3Reply where
+  show (POP3Reply s t) =
+    show s ++ T.unpack (T.append (T.cons ' ' t) "\r\n")
+  
+data POP3ReplyIndicator =  NONE | OK | ERR deriving(Eq)
+
+instance Show POP3ReplyIndicator where
+  show NONE = ""
+  show OK   = "+OK"
+  show ERR  = "-ERR"
+
+type POP3MVar = TMVar POP3Session

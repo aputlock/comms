@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Comms.Common.Util where
 
 import qualified Codec.Crypto.RSA.Pure         as RSA
@@ -161,3 +162,17 @@ closeHandle handle (Right r) = do
   hClose handle
   putStrLn "Closed SMTP session handle"
   return r
+
+
+{-| Get the string representation of the requested command -}
+verb :: T.Text -> T.Text
+verb str = T.strip $ head $ T.splitOn crlf $ head $ T.words str
+
+arg :: T.Text -> T.Text
+arg str = T.stripEnd $ head $ T.splitOn crlf $ T.unwords $ tail $ T.words str
+
+maybeArg :: T.Text -> Maybe T.Text
+maybeArg str = if length (T.words str) > 1 then Just $ arg str else Nothing
+
+crlf :: T.Text
+crlf = "\r\n"

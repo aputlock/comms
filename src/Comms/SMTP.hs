@@ -6,6 +6,7 @@ module Comms.SMTP
   ( handleConn
   ) where
 
+import           Comms.Common.Util
 import           Comms.Common.Types
 import           Comms.Eth.Sender
 import           Control.Concurrent.STM
@@ -37,8 +38,6 @@ handleConn handle config channel = do
   -- do a pattern match on that plus the previous state to see what
   -- the next step should be.
 
---  hClose handle
---  putStrLn "Closed handle"
 startSession :: Handle -> IO ()
 startSession handle = do
   putStrLn "In startSession"
@@ -118,16 +117,6 @@ datm handle t env = do
 sendReply handle reply = (hPutStr handle $ show reply)
 
 newConn = Reply 220 (hostName <> " SMTP Service Ready comms")
-
-{-| Get the string representation of the requested command -}
-verb :: T.Text -> T.Text
-verb str = T.strip $ head $ T.splitOn crlf $ head $ T.words str
-
-arg :: T.Text -> T.Text
-arg str = T.stripEnd $ head $ T.splitOn crlf $ T.unwords $ tail $ T.words str
-
-crlf :: T.Text
-crlf = "\r\n"
 
 mail handle t env = do
   let rhs = arg t

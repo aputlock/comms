@@ -51,9 +51,9 @@ main = do
   when isDebug $ putStrLn "Listening on SMTP socket"
   forkChild
     (bracket (listenOn $ PortNumber pop3Port) (sClose) $ \sock ->
-       (bindServer sock SMTP.handleConn config undefined))
+       (bindServer sock POP3.handleConn config undefined))
     children
-  when isDebug $ putStrLn "Listening on IMAP socket"
+  when isDebug $ putStrLn "Listening on POP3 socket"
   when isDebug $ putStrLn "Bound to both sockets"
   when isDebug $ putStrLn $ show config
   waitForChildren children
