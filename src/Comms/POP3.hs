@@ -58,7 +58,7 @@ sessLoop handle env = do
           either <- popList Nothing
           case either of
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
-            Right s -> sendReply handle s
+            Right s ->  foldr (\res acc-> sendPreFormReply handle res) (return ()) s
         Just parsed  -> do
           let eitherNum = TR.decimal t
           case eitherNum of
@@ -67,7 +67,7 @@ sessLoop handle env = do
               e <- popList $ Just num
               case e of
                 Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
-                Right s ->  sendReply handle s
+                Right s ->  foldr (\res acc-> sendPreFormReply handle res) (return ()) s
       sessLoop handle env
     "UIDL" -> undefined
     "TOP"  -> undefined

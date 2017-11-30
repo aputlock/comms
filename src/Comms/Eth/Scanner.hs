@@ -127,7 +127,7 @@ dropDeleted (l:lst) (d:deleted) = if d then dropDeleted lst deleted
                                   else l:(dropDeleted lst deleted)
 
 -- POP3 LIST command
-popList :: Maybe Int -> IO (Either Web3Error String)
+popList :: Maybe Int -> IO (Either Web3Error [String])
 popList maybeNum = do
   events <- getMessages
   case events of
@@ -140,10 +140,10 @@ popList maybeNum = do
                        Left err -> return $ Left err
                        Right maybeError ->
                            case maybeError of
-                             Just err -> return $ Right err
+                             Just err -> return $ Right [err]
                              Nothing -> do
                                   scan <- getScanListing num $ changeData $ messages!!(num - 1)
-                                  return $ Right $ "+OK " ++ scan
+                                  return $ Right $ ["+OK " ++ scan]
           Nothing -> do
                      stat <- popStat
                      case stat of
@@ -152,9 +152,9 @@ popList maybeNum = do
                                  resp <- ifoldr (\idx str resp -> do
                                                    s <- getScanListing (idx + 1) $ changeData $ str
                                                    r <- resp
-                                                   return $ s ++ r
-                                                ) (return "") messages
-                                 return $ Right $ hd ++ resp
+                                                   return $ s:r
+                                                ) (return [".\r\n"]) messages
+                                 return $ Right $ hd:resp
 
 getScanListing :: Int -> Text -> IO String
 getScanListing num txData = do
@@ -179,7 +179,7 @@ popRetr num = do
                            msg <- decryptMessage $ parseMessage txData
                            size <- messageSize txData
                            let line1 = "+OK " ++ show size ++ " octets\r\n"
-                           return $ Right $ line1 ++ msg ++ "\r\n"
+                           return $ Right $ line1 ++ msg ++ "\r\n.\r\n"
 
 -- Returns Nothing on success, error message on failure
 messageExists :: Int -> IO (Either Web3Error (Maybe String))

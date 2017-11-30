@@ -160,7 +160,7 @@ closeHandle handle (Left e) = do
   return ()
 closeHandle handle (Right r) = do
   hClose handle
-  putStrLn "Closed SMTP session handle"
+  putStrLn "Closed session handle"
   return r
 
 
