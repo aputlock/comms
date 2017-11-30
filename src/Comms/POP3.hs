@@ -14,6 +14,7 @@ import           System.IO
 import qualified Data.Text      as T
 import qualified Data.Text.Read as TR
 import           Control.Concurrent.STM
+import           Control.Monad
 {-|
 There is a loop here as well until we hit a quit command
 -}
@@ -36,6 +37,7 @@ sessLoop :: Handle -> POP3MVar -> IO ()
 sessLoop handle env = do
   putStrLn "Top of POP3 sessLoop"
   line <- hGetLine handle
+  putStrLn line
   let t = T.pack line
   case verb t of
     "CAPA" -> do
@@ -58,19 +60,17 @@ sessLoop handle env = do
           either <- popList Nothing
           case either of
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
-            Right s ->  foldr (\res acc-> sendPreFormReply handle res) (return ()) s
+            Right s -> forM_ s (\res -> sendPreFormReply handle res)
         Just parsed  -> do
-          let eitherNum = TR.decimal t
+          let eitherNum = TR.decimal parsed
           case eitherNum of
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
             Right (num, _) -> do
               e <- popList $ Just num
               case e of
                 Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
-                Right s ->  foldr (\res acc-> sendPreFormReply handle res) (return ()) s
+                Right s -> forM_ s (\res -> sendPreFormReply handle res)
       sessLoop handle env
-    "UIDL" -> undefined
-    "TOP"  -> undefined
     "RETR" -> do
       handleMaybeArg handle t popRetr
       sessLoop handle env
