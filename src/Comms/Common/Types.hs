@@ -84,6 +84,7 @@ data Pop3State = Pop3State
     { startBlock :: T.Text
     , deletedMessages :: [Bool]
     , pendingDeletion :: [Bool]
+    , messageMap :: [Int]
     } deriving (Show, Generic)
 
 instance ToJSON Pop3State
