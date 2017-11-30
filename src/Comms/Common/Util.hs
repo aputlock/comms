@@ -3,6 +3,8 @@ module Comms.Common.Util where
 import qualified Codec.Crypto.RSA.Pure         as RSA
 import           Crypto.Random
 import           Crypto.Types.PubKey.RSA
+import           Control.Concurrent            (forkFinally)
+import           Control.Exception
 import           Data.Aeson
 import           Data.ASN1.BinaryEncoding
 import           Data.ASN1.Encoding
@@ -15,9 +17,12 @@ import           Data.Maybe
 import qualified Data.Text                     as T
 import qualified Data.Text.Read                as TR
 import           GHC.Generics
+import           Network                       (Socket (..), accept)
 import           Network.Ethereum.Web3.Address
 import           System.Directory
-
+import           System.IO                     (BufferMode (NoBuffering),
+                                                Handle, hClose, hSetBuffering)
+    
 import           Comms.Common.Types
 
 -- General Utilities
@@ -122,3 +127,37 @@ decryptMessage ciph = do
   cfg <- getDefaultConfig
   key <- getKeyPair $ fromMaybe "rsa.key" $ keyFile cfg
   return $ decrypt ciph key
+
+getDebug :: Options -> Bool
+getDebug opts = debug opts
+
+getSMTPPort :: Config -> Int
+getSMTPPort = smtpPort
+
+getPOP3Port :: Config -> Int
+getPOP3Port = pop3Port
+
+-- Major event loop
+bindServer :: Socket -> (Handle -> Config -> t -> IO ()) -> Config -> t -> IO ()
+bindServer sock handler config channel = do
+  bracket
+    (accept sock)
+    (\(handle, _, _) -> hClose handle)
+    (\(handle, _, _) -> do
+       putStrLn "In Handler"
+       -- Need to process incoming connections w/o buffering
+       hSetBuffering handle NoBuffering
+       -- TODO(broluwo): Consider moving to slave threads in order to catch exceptions more cleanly.
+       forkFinally (handler handle config channel) (closeHandle handle)
+       putStrLn "Forked handler"
+       bindServer sock handler config channel)
+
+--FIXME(broluwo): Don't swallow the exception, move to using slave threads or the async lib.
+closeHandle handle (Left e) = do
+  putStrLn $ show e
+  hClose handle
+  return ()
+closeHandle handle (Right r) = do
+  hClose handle
+  putStrLn "Closed SMTP session handle"
+  return r
