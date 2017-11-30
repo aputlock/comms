@@ -60,7 +60,7 @@ sessLoop handle env = do
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
             Right s ->  foldr (\res acc-> sendPreFormReply handle res) (return ()) s
         Just parsed  -> do
-          let eitherNum = TR.decimal t
+          let eitherNum = TR.decimal parsed
           case eitherNum of
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
             Right (num, _) -> do
