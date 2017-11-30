@@ -58,6 +58,9 @@ getContract path = do
 methodHash :: String -> ContractABI -> Text
 methodHash methodName contract = methodId $ findDecl methodName $ unABI contract
 
+eventHash :: String -> ContractABI -> Text
+eventHash eventName contract = eventId $ findDecl eventName $ unABI contract
+                                 
 -- Builds a Call object for the given contract/method
 getCall :: ContractABI -> String -> IO Call
 getCall contract methodName = do
@@ -77,4 +80,7 @@ getCall contract methodName = do
 
 -- Returns the Declaration with the given name
 findDecl :: String -> [Declaration] -> Declaration
-findDecl name lst = fromJust $ find (\e -> funName e == T.pack name) lst
+findDecl name lst = fromJust $ find (\e -> case e of
+                                             DFunction fun _ _ _ -> fun == T.pack name
+                                             DEvent e _ _ ->  e == T.pack name
+                                             _ -> False) lst

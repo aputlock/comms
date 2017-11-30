@@ -9,8 +9,11 @@ import           Data.ASN1.Encoding
 import           Data.ASN1.Object
 import qualified Data.ByteString.Lazy          as B
 import qualified Data.ByteString.Lazy.Char8    as C
+import           Data.Char
 import           Data.List
 import           Data.Maybe
+import qualified Data.Text                     as T
+import qualified Data.Text.Read                as TR
 import           GHC.Generics
 import           Network.Ethereum.Web3.Address
 import           System.Directory
@@ -24,6 +27,14 @@ fromRight e =
   case e of
     Left err  -> error $ show err
     Right val -> val
+
+-- Converts a hex string to ascii
+hexToAscii :: T.Text -> T.Text
+hexToAscii txt =
+    if T.length txt `mod` 2 /= 0 then error "Malformed hex string"
+    else T.pack str
+        where bytes = T.chunksOf 2 txt
+              str = fmap (chr . fst . fromRight . TR.hexadecimal) bytes
 
 -- Config Utilities
 

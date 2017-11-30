@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings  #-}
 
 module Comms.Common.Types where
 
@@ -8,10 +8,12 @@ import           Crypto.Types.PubKey.RSA
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as B
 import           Data.Data
+import qualified Data.Text                     as T
 import           Data.Typeable
 import           GHC.Generics
 import           Network.Ethereum.Web3.Address
-
+import           Network.Ethereum.Web3.Types
+    
 -- | Defines the data type for commandline arguments.
 data Options = Options
   { config :: FilePath -- Defines the location of the configuration file.
@@ -32,6 +34,7 @@ instance ToJSON Config
 
 data Contact = Contact
     { emailAddr :: String
+    , txHash :: TxHash
     , contactInfo :: ContactCard
     } deriving (Show, Generic)
 
@@ -69,3 +72,12 @@ instance FromJSON PrivateKey where
                            <*> v .: "private_dP"
                            <*> v .: "private_dQ"
                            <*> v .: "private_qinv"
+
+data Pop3State = Pop3State
+    { startBlock :: T.Text
+    , deletedMessages :: [Bool]
+    , pendingDeletion :: [Bool]
+    } deriving (Show, Generic)
+
+instance ToJSON Pop3State
+instance FromJSON Pop3State

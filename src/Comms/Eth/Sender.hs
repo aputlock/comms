@@ -39,12 +39,6 @@ bytesDecode :: T.Text -> Bytes
 {-# INLINE bytesDecode #-}
 bytesDecode = BA.convert . T.encodeUtf8
 
--- Converts a hex string to ascii
-hexToAscii :: Text -> Text
-hexToAscii txt = T.pack str
-    where bytes = T.chunksOf 2 txt
-          str = fmap (chr . fst . fromRight . TR.hexadecimal) bytes
-
 -- Creates a transaction with the user's ContactCard
 sendContactCard :: IO (Either Web3Error TxHash)
 sendContactCard = do
@@ -52,7 +46,6 @@ sendContactCard = do
   priv <- getKeyPair defaultKeyFile
   contract <- getContract contractFile
   call <- getCall contract "registerUser"
-  cost <- estimateCost call
   let contactCard = ContactCard { inboxAddr = walletAddr cfg, publicKey = private_pub priv }
       builder = encodeToTextBuilder contactCard
       lazy = TLB.toLazyText builder
@@ -77,7 +70,7 @@ importContact email hash = do
   contact <- lookupContact email
   case contact of
     Just _ -> error $ "Contact already exists with email address: " ++ email
-    Nothing -> addContact contactFile $ Contact email card
+    Nothing -> addContact contactFile $ Contact email hash card
 
 -- Fetches the ContactCard at the given transaction hash
 fetchContactCard :: TxHash -> IO ContactCard
@@ -89,7 +82,7 @@ fetchContactCard hash = do
 
 -- Sends a message to the given user
 sendEmail :: String -> String -> IO (Either Web3Error TxHash)
-sendEmail msg usr = do
+sendEmail usr msg = do
   recip <- lookupContact usr
   case recip of
     Nothing -> return $ Left $ UserFail $ "No contact with email address: " ++ usr
