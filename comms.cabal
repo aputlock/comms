@@ -23,6 +23,9 @@ library
                      , Comms.POP3
   other-modules:       Comms.Eth.Cost
                      , Comms.Eth.Provider
+                     , Comms.SMTP.Handler
+                     , Comms.SMTP.Server
+                     , Comms.SMTP.State
   build-depends:       base >= 4.7 && < 5
                      , web3 >= 0.5.5.0
                      , RSA >= 2.3.0
