@@ -6,7 +6,7 @@ module Comms.POP3
   ) where
 
 import           Comms.Common.Util
-import           Comms.Common.Types
+import           Comms.Types
 import           Comms.Eth.Scanner
 
 import           Network

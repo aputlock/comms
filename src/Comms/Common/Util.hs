@@ -24,7 +24,7 @@ import           System.Directory
 import           System.IO                     (BufferMode (NoBuffering),
                                                 Handle, hClose, hSetBuffering)
     
-import           Comms.Common.Types
+import           Comms.Types
 
 -- General Utilities
 

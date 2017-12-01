@@ -18,7 +18,7 @@ import           Data.Maybe
 import qualified Data.Text                     as T
 import           Numeric
 
-import           Comms.Common.Types
+import           Comms.Types
 import           Comms.Common.Util
 import           Comms.Eth.Provider
 

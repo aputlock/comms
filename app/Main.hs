@@ -2,7 +2,7 @@ module Main
   ( main
   ) where
 
-import           Comms.Common.Types
+import           Comms.Types
 import           Comms.Common.Util
 import           Comms.Eth.Scanner
 import           Comms.Eth.Sender

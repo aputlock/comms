@@ -18,7 +18,7 @@ library
   exposed-modules:     Comms.Eth.Scanner
                      , Comms.Eth.Sender
                      , Comms.Common.Util
-                     , Comms.Common.Types
+                     , Comms.Types
                      , Comms.SMTP
                      , Comms.POP3
   other-modules:       Comms.Eth.Cost

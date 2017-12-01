@@ -2,7 +2,7 @@
 
 module Comms.SMTP.State where
 
-import           Comms.Common.Types
+import           Comms.Types
 import           Control.Concurrent.STM
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T

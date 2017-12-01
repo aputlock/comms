@@ -4,7 +4,7 @@ module Comms.SMTP.Server
   ( handleConn
   ) where
 
-import           Comms.Common.Types
+import           Comms.Types
 import           Comms.Common.Util
 import qualified Comms.Eth.Sender       as Eth (sendEmail)
 import           Comms.SMTP.Handler

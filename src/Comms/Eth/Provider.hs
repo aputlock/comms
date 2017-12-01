@@ -5,7 +5,7 @@ import           Control.Monad.IO.Class
 import           Network.Ethereum.Web3
 import           Network.Ethereum.Web3.Types
 
-import           Comms.Common.Types
+import           Comms.Types
 import           Comms.Common.Util
 
 data UserProvider

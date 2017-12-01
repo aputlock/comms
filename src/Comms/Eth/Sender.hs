@@ -11,7 +11,7 @@ module Comms.Eth.Sender
   , sendEmail
   ) where
 
-import           Comms.Common.Types
+import           Comms.Types
 import           Comms.Common.Util
 import           Comms.Eth.Cost
 import           Comms.Eth.Provider
