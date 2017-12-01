@@ -2,7 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 
-module Comms.Eth.Sender where
+module Comms.Eth.Sender
+  (
+    sendContactCard
+  , getContactCard
+  , importContact
+  , fetchContactCard
+  , sendEmail
+  ) where
 
 import           Comms.Common.Types
 import           Comms.Common.Util
@@ -39,7 +46,7 @@ bytesDecode :: T.Text -> Bytes
 {-# INLINE bytesDecode #-}
 bytesDecode = BA.convert . T.encodeUtf8
 
--- Creates a transaction with the user's ContactCard
+{- | Creates a transaction with the user's ContactCard -}
 sendContactCard :: IO (Either Web3Error TxHash)
 sendContactCard = do
   cfg <- getDefaultConfig
@@ -52,7 +59,7 @@ sendContactCard = do
       bytes = bytesDecode $ TL.toStrict lazy
   runUser $ registerUser contractAddr nopay (BytesD bytes)
 
--- Extracts the Text corresponding to the ContactCard
+{- | Extracts the Text corresponding to the ContactCard -}
 getContactCard :: Text -> IO Text
 getContactCard txt = do
   contract <- getContract contractFile
@@ -63,7 +70,7 @@ getContactCard txt = do
   if T.take 10 txt /= method then error "Invalid contact card"
   else return $ T.take len $ T.drop 128 args
 
--- Imports contact at hash into address book with given email
+{- | Imports contact at hash into address book with given email -}
 importContact :: String -> TxHash -> IO ()
 importContact email hash = do
   card <- fetchContactCard hash
@@ -72,7 +79,7 @@ importContact email hash = do
     Just _ -> error $ "Contact already exists with email address: " ++ email
     Nothing -> addContact contactFile $ Contact email hash card
 
--- Fetches the ContactCard at the given transaction hash
+{- | Fetches the ContactCard at the given transaction hash -}
 fetchContactCard :: TxHash -> IO ContactCard
 fetchContactCard hash = do
   eith <- runUser $ getTransactionByHash hash
@@ -80,7 +87,7 @@ fetchContactCard hash = do
   contact <- getContactCard serial
   return $ fromRight ((eitherDecode . BSL.fromStrict . T.encodeUtf8 . hexToAscii $ contact) :: Either String ContactCard)
 
--- Sends a message to the given user
+{- | Sends a message to the given user -}
 sendEmail :: String -> String -> IO (Either Web3Error TxHash)
 sendEmail usr msg = do
   recip <- lookupContact usr

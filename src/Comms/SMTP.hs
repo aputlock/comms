@@ -6,37 +6,40 @@ module Comms.SMTP
   ( handleConn
   ) where
 
-import           Comms.Common.Util
+
 import           Comms.Common.Types
-import           Comms.Eth.Sender
+import           Comms.Common.Util
+import qualified Comms.Eth.Sender       as Eth (sendEmail)
 import           Control.Concurrent.STM
-import           Control.Monad          (when)
-import           Data.Monoid            ((<>))
+import           Control.Monad                 (when)
+import           Data.Monoid                   ((<>))
 import qualified Data.Text              as T
 import           Network
-import           System.IO
+import           System.IO                     (hPutStr, hGetLine, Handle(..))
 import           Text.RE.Replace
 import           Text.RE.TDFA
 
 -- TODO(broluwo): We can have this passed in
+hostName :: T.Text
 hostName = "127.0.0.1"
 
+{- | This value is how big we can let our message be in bytes.
+Unfortunately this is directly related to the blockGasLimit
+which is variable and expensive to calculate.-}
+maxMessageSize :: Integer
 maxMessageSize = 10240000
 
+rcptToRE :: RE
 rcptToRE = [re|[Tt][Oo]:\s*<(.+)>|]
 
+mailFromRE :: RE
 mailFromRE = [re|[Ff][Rr][Oo][Mm]:\s*<(.*)>|]
 
-{-|
-There is a loop here as well until we hit a quit command
--}
+
 handleConn :: Handle -> Config -> t -> IO ()
 handleConn handle config channel = do
   startSession handle
-  putStrLn "Returning from thread"
-  -- After parsing it into some kind of data or record
-  -- do a pattern match on that plus the previous state to see what
-  -- the next step should be.
+  putStrLn "Finished SMTP Session"
 
 startSession :: Handle -> IO ()
 startSession handle = do
@@ -82,42 +85,47 @@ sessLoop handle env = do
       datm handle t env
       updateEnvState env HaveData
       e <- atomically $ readTMVar env
-      putStrLn $ show e
+      print e
       -- Message is ready to send off at this point, pass to ethereum
-      -- Then clear the envelopemvar, and say you're ready for a new
-      -- "session".
-      let resp = fmap (\recip -> sendEmail (T.unpack recip) (T.unpack $ contents e)) $ to e
-          strs = fmap (\io -> do
-                         r <- io
-                         return $ case r of
-                                    Left err -> show err
-                                    Right hash -> "Message sent: " ++ T.unpack hash
-                      ) resp
-      foldr (\io acc -> do
-              str <- io
-              putStrLn str
-           ) (return ()) strs
+      sendEmail e
+      -- Then clear the envelopemvar, and say you're ready for a new "session".
       ok handle
       sessLoop handle env
     _ -> do
       sendReply handle (Reply 502 "5.5.2 Error: command not recognized")
       sessLoop handle env
 
+sendEmail :: Envelope -> IO ()
+sendEmail e = do
+  let resp = fmap (\recip -> Eth.sendEmail (T.unpack recip) (T.unpack $ contents e)) $ to e
+  let strs = fmap (\io -> do
+                      r <- io
+                      return $ case r of
+                                 Left err -> show err
+                                 Right hash -> "Message sent: " ++ T.unpack hash
+                  ) resp
+  foldr (\io acc -> do
+            str <- io
+            putStrLn str
+        ) (return ()) strs
 
-
+datm :: SMTPHandler
 datm handle t env = do
   line <- hGetLine handle
-  when ((T.unpack $ T.strip $ T.pack line) /= ".") $ do
+  when (T.unpack (T.strip $ T.pack line) /= ".") $ do
     updateEnvContents env $ T.pack (line <> "\n")
-      -- Update Data
     datm handle t env
+    
   -- Make sure we have recipients already
   -- otherwise return error 554 5.5.1 Error: no valid recipients / need RCPT command
 
-sendReply handle reply = (hPutStr handle $ show reply)
+sendReply :: Show a => Handle -> a -> IO ()
+sendReply handle reply = hPutStr handle $ show reply
 
+newConn :: SMTPReply
 newConn = Reply 220 (hostName <> " SMTP Service Ready comms")
 
+mail :: SMTPHandler
 mail handle t env = do
   let rhs = arg t
   case captureTextMaybe [cp|1|] $ rhs ?=~ mailFromRE of
@@ -128,6 +136,7 @@ mail handle t env = do
       sendReply handle $ Reply 250 "2.1.0 OK"
       -- Check the last state stored in the env. If it's not from HELO or earlier we need to abort with a nested MAIL Command err.
 
+rcpt :: SMTPHandler
 rcpt handle t env = do
   let rhs = arg t
   case captureTextMaybe [cp|1|] $ rhs ?=~ rcptToRE of
@@ -137,15 +146,14 @@ rcpt handle t env = do
       updateEnvState env HaveRcptTo
       sendReply handle $ Reply 250 "2.1.0 OK"
 
-helo :: Handle -> T.Text -> EnvelopeMVar -> IO ()
+helo :: SMTPHandler
 helo handle cmd env = do
   putStrLn "Handling HELO"
-  sendReply handle $ Reply 0 ("250-" <> hostName <> " Hello " <> (arg cmd))
+  sendReply handle $ Reply 0 $ "250-" <> hostName <> " Hello " <> arg cmd
   -- Now we need to send the extensions we support
-  sendReply handle $ Reply 0 ("250-SIZE " <> (T.pack $ show maxMessageSize))
-  sendReply handle $ Reply 0 ("250-ENHANCEDSTATUSCODES")
-  sendReply handle $ Reply 0 ("250-8BITMIME")
-  sendReply handle $ Reply 250 "DSN"
+  sendReply handle $ Reply 0 $ "250-SIZE " <> T.pack (show maxMessageSize)
+  sendReply handle $ Reply 0 "250-ENHANCEDSTATUSCODES"
+  sendReply handle $ Reply 0 "250-8BITMIME"
   case verb cmd of
     "HELO" -> updateEnvState env HaveHelo
     "EHLO" -> updateEnvState env HaveEhlo
@@ -153,41 +161,44 @@ helo handle cmd env = do
 
 {- | Handler for `NOOP` command
 Does nothing besides sending an OK status message-}
-noop :: Handle -> t -> t1 -> IO ()
+noop :: SMTPHandler
 noop handle _ _ = ok handle
 
+quit :: SMTPHandler
 quit handle t env = sendReply handle $ Reply 221 "2.0.0 Bye"
 
-{- | Handler for `RSET` command
-Resets the message that was being constructed to a blank state.
+{- | Resets the message that was being constructed to a blank state.
 -}
-rset :: Handle -> t -> EnvelopeMVar -> IO ()
+rset :: SMTPHandler
 rset handle _ env = do
   putStrLn "Inside RSET"
   overwriteEnvelope env (Envelope "" "" [] Unknown "")
   ok handle
 
-newEmptyEnvelopeMVar = atomically (newEmptyTMVar)
+newEmptyEnvelopeMVar :: IO EnvelopeMVar
+newEmptyEnvelopeMVar = atomically newEmptyTMVar
 
 {- | Swaps the value -}
-updateEnvelope :: TMVar a -> a -> IO ()
+updateEnvelope :: EnvelopeMVar -> Envelope -> IO ()
 updateEnvelope env = atomically . putTMVar env
 
 {- | Replaces contents of the TMVar with the supplied value.
 Non-Blocking.
 -}
-overwriteEnvelope :: TMVar a -> a -> IO ()
+overwriteEnvelope :: EnvelopeMVar -> Envelope -> IO ()
 overwriteEnvelope mvar env = do
   old <- atomically $ tryTakeTMVar mvar
   case old of
-    Nothing -> atomically $ (putTMVar mvar env)
-    Just _  -> atomically $ (putTMVar mvar env)
+    Nothing -> atomically $ putTMVar mvar env
+    Just _  -> atomically $ putTMVar mvar env
 
+getEnvelope :: EnvelopeMVar -> IO Envelope
 getEnvelope = atomically . takeTMVar
 
 ok :: Handle -> IO ()
 ok handle = sendReply handle $ Reply 250 "2.0.0 OK"
 
+updateEnvState :: EnvelopeMVar -> SMTPState -> IO ()
 updateEnvState mvar newState = do
   putStrLn "Entered updateEnvState"
   old <- atomically $ tryTakeTMVar mvar
@@ -200,7 +211,7 @@ updateEnvState mvar newState = do
       putStrLn "updateEnvState - Just Case."
       overwriteEnvelope mvar (oldE {state = newState})
 
-updateEnvFrom :: TMVar Envelope -> T.Text -> IO ()
+updateEnvFrom :: EnvelopeMVar -> T.Text -> IO ()
 updateEnvFrom mvar from = do
   putStrLn "Entered updateEnvFrom"
   old <- atomically $ tryTakeTMVar mvar
@@ -213,7 +224,7 @@ updateEnvFrom mvar from = do
       putStrLn "updateEnvFrom - Just Case."
       overwriteEnvelope mvar (oldE {from = from})
 
-updateEnvTo :: TMVar Envelope -> T.Text -> IO ()
+updateEnvTo :: EnvelopeMVar -> T.Text -> IO ()
 updateEnvTo mvar newTo = do
   putStrLn "Entered updateEnvTo"
   old <- atomically $ tryTakeTMVar mvar
@@ -224,8 +235,9 @@ updateEnvTo mvar newTo = do
       overwriteEnvelope mvar (Envelope "" "" [newTo] HaveRcptTo "")
     Just oldE -> do
       putStrLn "updateEnvTo - Just Case."
-      overwriteEnvelope mvar (oldE {to = newTo : (to oldE)})
+      overwriteEnvelope mvar (oldE {to = newTo : to oldE})
 
+updateEnvContents :: EnvelopeMVar -> T.Text -> IO ()
 updateEnvContents mvar newContents = do
   putStrLn "Entered updateEnvContents"
   old <- atomically $ tryTakeTMVar mvar
@@ -236,4 +248,4 @@ updateEnvContents mvar newContents = do
       overwriteEnvelope mvar (Envelope "" "" [] HaveRcptTo newContents)
     Just oldE -> do
       putStrLn "updateEnvContents - Just Case."
-      overwriteEnvelope mvar (oldE {contents = (contents oldE) <> newContents})
+      overwriteEnvelope mvar (oldE {contents = contents oldE <> newContents})

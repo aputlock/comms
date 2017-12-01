@@ -19,7 +19,7 @@ import           Data.Typeable
 import           GHC.Generics
 import           Network.Ethereum.Web3.Address
 import           Network.Ethereum.Web3.Types
-    
+import           System.IO (Handle(..))
 -- | Defines the data type for commandline arguments.
 data Options
   = RunServerOptions { config :: FilePath -- Defines the location of the configuration file.
@@ -119,6 +119,8 @@ instance Show SMTPReply where
       0 -> T.unpack $ (T.append str "\r\n")
       _ -> show n ++ T.unpack (T.append (T.cons ' ' str) "\r\n")
 type EnvelopeMVar = TMVar Envelope
+
+type SMTPHandler = Handle -> T.Text -> EnvelopeMVar -> IO ()
 
 data POP3SessionState = UNAUTH
                       | TRANS
