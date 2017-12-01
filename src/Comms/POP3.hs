@@ -14,16 +14,12 @@ import           System.IO
 import qualified Data.Text      as T
 import qualified Data.Text.Read as TR
 import           Control.Concurrent.STM
-{-|
-There is a loop here as well until we hit a quit command
--}
+import           Control.Monad (forM_)
+
 handleConn :: Handle -> Config -> t -> IO ()
 handleConn handle config channel = do
   startSession handle
   putStrLn "Returning from thread"
-  -- After parsing it into some kind of data or record
-  -- do a pattern match on that plus the previous state to see what
-  -- the next step should be.
 
 startSession :: Handle -> IO ()
 startSession handle = do
@@ -58,7 +54,7 @@ sessLoop handle env = do
           either <- popList Nothing
           case either of
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
-            Right s ->  foldr (\res acc-> sendPreFormReply handle res) (return ()) s
+            Right s ->  forM_ s (\res -> sendPreFormReply handle res)
         Just parsed  -> do
           let eitherNum = TR.decimal parsed
           case eitherNum of
@@ -67,10 +63,8 @@ sessLoop handle env = do
               e <- popList $ Just num
               case e of
                 Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
-                Right s ->  foldr (\res acc-> sendPreFormReply handle res) (return ()) s
+                Right s ->  forM_ s (\res -> sendPreFormReply handle res)
       sessLoop handle env
-    "UIDL" -> undefined
-    "TOP"  -> undefined
     "RETR" -> do
       handleMaybeArg handle t popRetr
       sessLoop handle env
@@ -156,5 +150,4 @@ updatePass mvar newPass = do
       putStrLn "updatePass - Just Case."
       overwritePOP3Session mvar (oldSess {pass = newPass})
 
-      
 pop3OK hndl = sendReply hndl $ POP3Reply OK ""

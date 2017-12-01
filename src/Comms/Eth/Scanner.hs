@@ -143,7 +143,7 @@ popList maybeNum = do
                              Just err -> return $ Right [err]
                              Nothing -> do
                                   scan <- getScanListing num $ changeData $ messages!!(num - 1)
-                                  return $ Right $ ["+OK " ++ scan]
+                                  return $ Right $ ["+OK " ++ scan ++ ".\r\n"]
           Nothing -> do
                      stat <- popStat
                      case stat of

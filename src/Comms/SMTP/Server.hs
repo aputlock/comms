@@ -10,7 +10,7 @@ import qualified Comms.Eth.Sender       as Eth (sendEmail)
 import           Comms.SMTP.Handler
 import           Comms.SMTP.State
 import           Control.Concurrent.STM
-import           Control.Monad          (when)
+import           Control.Monad          (forM_, when)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Network
@@ -95,7 +95,4 @@ sendEmail e = do
                    case r of
                      Left err   -> show err
                      Right hash -> "Message sent: " ++ T.unpack hash) resp
-  foldr (\io acc -> do
-            str <- io
-            putStrLn str
-        ) (return ())  strs
+  forM_ strs (\str -> str >>= putStrLn)
