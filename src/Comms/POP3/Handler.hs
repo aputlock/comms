@@ -48,13 +48,13 @@ pass handle cmd mvar inboxState = do
   pop3OK handle
 
 stat :: POP3Handler
-stat handle t mvar inboxState = handleNoArg handle popStat
+stat handle t mvar inboxState = handleNoArg handle $ popStat inboxState
 
 list :: POP3Handler
 list handle t mvar inboxState =
   case maybeArg t of
     Nothing -> do
-      either <- popList Nothing
+      either <- popList inboxState Nothing
       case either of
         Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
         Right s  -> forM_ s $ sendPreFormReply handle
@@ -63,25 +63,25 @@ list handle t mvar inboxState =
       case eitherNum of
         Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
         Right (num, _) -> do
-          e <- popList $ Just num
+          e <- popList inboxState $ Just num
           case e of
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
             Right s  -> forM_ s $ sendPreFormReply handle
 
 retr :: POP3Handler
-retr handle t mvar inboxState = handleMaybeArg handle t popRetr
+retr handle t mvar inboxState = handleMaybeArg handle t $ popRetr inboxState
 
 dele :: POP3Handler
-dele handle t mvar inboxState = handleMaybeArg handle t popDele
+dele handle t mvar inboxState = handleMaybeArg handle t $ popDele inboxState
 
 quit :: POP3Handler
-quit handle t mvar inboxState = handleNoArg handle popQuit
+quit handle t mvar inboxState = handleNoArg handle $ popQuit inboxState
 
 noop :: POP3Handler
-noop handle t mvar inboxState = handleNoArg handle popNoop
+noop handle t mvar inboxState = handleNoArg handle $ popNoop inboxState
 
 rset :: POP3Handler
-rset handle t mvar inboxState = handleNoArg handle popRset
+rset handle t mvar inboxState = handleNoArg handle $ popRset inboxState
 
 sendPreFormReply = hPutStr
 

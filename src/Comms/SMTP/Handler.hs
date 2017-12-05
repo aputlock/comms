@@ -76,6 +76,7 @@ helo handle cmd env = do
   sendReply handle $ Reply 0 $ "250-SIZE " <> T.pack (show maxMessageSize)
   sendReply handle $ Reply 0 "250-ENHANCEDSTATUSCODES"
   sendReply handle $ Reply 0 "250-8BITMIME"
+  sendReply handle $ Reply 0 "250 DSN"
   case verb cmd of
     "HELO" -> updateEnvState env HaveHelo
     "EHLO" -> updateEnvState env HaveEhlo

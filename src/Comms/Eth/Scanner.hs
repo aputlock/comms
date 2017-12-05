@@ -9,10 +9,12 @@ import           Comms.Eth.Cost
 import           Comms.Eth.Provider
 
 import           Control.Monad
+import           Control.Monad.STM
+import           Control.Concurrent.STM.TMVar
 import           Data.Aeson
 import           Data.Maybe
 import qualified Data.ByteArray                as BA
-import qualified Data.ByteString.Char8 as C    
+import qualified Data.ByteString.Char8         as C    
 import qualified Data.ByteString.Lazy          as B
 import           Data.List.Index
 import qualified Data.Text                     as T
@@ -27,25 +29,6 @@ import           Network.Ethereum.Web3.Contract
 import           Network.Ethereum.Web3.Eth     as E
 import           Network.Ethereum.Web3.TH
 import           Network.Ethereum.Web3.Types
-
-stateFile :: FilePath
-stateFile = "state.json"
-
--- Gets pop3 state from disk or generates a new one
-getPop3State :: FilePath -> IO (Either Web3Error Pop3State)
-getPop3State path = do
-  exists <- doesFileExist path
-  if (not exists) then do
-                    blockNum <- runUser $ E.blockNumber
-                    case blockNum of
-                      Left err -> return $ Left err
-                      Right num -> return $ Right $ Pop3State num [] [] []
-  else do
-    bytes <- B.readFile path
-    let d =  eitherDecode bytes :: Either String Pop3State
-    case d of
-      Left err  -> return $ Left $ ParserFail $ "Couldn't read pop3 state: " ++ err
-      Right state -> return $ Right state
               
 -- Updates pop3 state with new messages
 updatePop3State :: Pop3State -> [Change] -> Pop3State
@@ -57,10 +40,6 @@ updatePop3State oldState messages =
     where
       del = extendState messages $ deletedMessages oldState
       pnd = extendState messages $ pendingDeletion oldState
-
--- Writes pop3 state back to disk
-writePop3State :: FilePath -> Pop3State -> IO ()
-writePop3State path state = B.writeFile path $ encode state
 
 -- Generates the new deletedMessages list
 extendState :: [a] -> [Bool] -> [Bool]
@@ -93,17 +72,16 @@ generateMessageMap lst deleted = mappingHelper 0 lst
               mappingHelper (i + 1) tl
 
 -- Gets list of inbox messages from transaction log
-getMessages :: IO (Either Web3Error [Change])
-getMessages = do
-  maybeState <- getPop3State stateFile
-  case maybeState of
-    Left err -> return $ Left err
-    Right state -> do
-                    contract <- getContract contractFile
-                    config <- getDefaultConfig
-                    let topic0 = eventHash "Message" contract
-                        topic1 = T.append "0x" . T.justifyRight 64 '0' . toText . walletAddr $ config
-                    runUser $ getLogs $ Filter Nothing (Just $ [Just topic0, Just topic1]) (Just $ startBlock state) Nothing
+getMessages :: InboxState -> IO (Either Web3Error [Change])
+getMessages state = do
+  st <- atomically $ readTMVar state
+  do
+    curState <- st
+    contract <- getContract contractFile
+    config <- getDefaultConfig
+    let topic0 = eventHash "Message" contract
+        topic1 = T.append "0x" . T.justifyRight 64 '0' . toText . walletAddr $ config
+    runUser $ getLogs $ Filter Nothing (Just $ [Just topic0, Just topic1]) (Just $ startBlock curState) Nothing
 
 -- Parse utf16-encoded utf8 string
 parseUtf16 :: String -> String
@@ -124,25 +102,24 @@ messageSize txData = do
   return $ length msg
 
 -- POP3 STAT command
-popStat :: IO (Either Web3Error String)
-popStat = do
-  oState <- getPop3State stateFile
-  events <- getMessages
-  case events of
-    Left err -> return $ Left err
-    Right messages ->
-          case oState of
-            Left err -> return $ Left err
-            Right oldState -> do
-                        let newState = updatePop3State oldState messages
-                            msgs = dropDeleted newState messages
-                        size <- foldr (\el acc -> do
-                                         a <- acc
-                                         size <- messageSize $ changeData el
-                                         return $ a + size
-                                      ) (return 0) msgs
-                        writePop3State stateFile newState
-                        return $ Right $ "+OK " ++ (show $ length msgs) ++ " " ++ show size ++ "\r\n"
+popStat :: InboxState -> IO (Either Web3Error String)
+popStat state = do
+  st <- atomically $ readTMVar state
+  do
+    oldState <- st
+    events <- getMessages state
+    case events of
+      Left err -> return $ Left err
+      Right messages -> do
+                  let newState = updatePop3State oldState messages
+                      msgs = dropDeleted newState messages
+                  size <- foldr (\el acc -> do
+                                   a <- acc
+                                   size <- messageSize $ changeData el
+                                   return $ a + size
+                                ) (return 0) msgs
+                  atomically $ swapTMVar state $ return newState
+                  return $ Right $ "+OK " ++ (show $ length msgs) ++ " " ++ show size ++ "\r\n"
                        
 dropDeleted :: Pop3State -> [a] -> [a]
 dropDeleted state lst = fmap (\n -> lst!!n) ind
@@ -152,37 +129,36 @@ dropDeleted state lst = fmap (\n -> lst!!n) ind
       ind = foldr (\e acc -> if not $ del!!e then e:acc else acc) [] map
 
 -- POP3 LIST command
-popList :: Maybe Int -> IO (Either Web3Error [String])
-popList maybeNum = do
-  st <- getPop3State stateFile
-  events <- getMessages
-  case events of
-    Left err -> return $ Left err
-    Right messages ->
-        case st of
-          Left err -> return $ Left err
-          Right oldState -> do
-                     let newState = updatePop3State oldState messages
-                         map = messageMap newState
-                     writePop3State stateFile newState
-                     case maybeNum of
-                       Just num -> do
-                              if messageExists num newState then do
-                                                              scan <- getScanListing num $ changeData $ messages!!(map!!(num - 1))
-                                                              return $ Right $ ["+OK " ++ scan ++ ".\r\n"]
-                              else return $ Right $ ["-ERR message " ++ show num ++ " already deleted\r\n"]
-                       Nothing -> do
-                              stat <- popStat
-                              case stat of
-                                Left err -> return $ Left err
-                                Right hd -> do
-                                          let msgs = dropDeleted newState messages
-                                          resp <- ifoldr (\idx str resp -> do
-                                                            s <- getScanListing (idx + 1) $ changeData $ str
-                                                            r <- resp
-                                                            return $ s:r
-                                                         ) (return [".\r\n"]) msgs
-                                          return $ Right $ hd:resp
+popList :: InboxState -> Maybe Int -> IO (Either Web3Error [String])
+popList state maybeNum = do
+  st <- atomically $ readTMVar state
+  do
+    oldState <- st
+    events <- getMessages state
+    case events of
+      Left err -> return $ Left err
+      Right messages -> do
+                  let newState = updatePop3State oldState messages
+                      map = messageMap newState
+                  atomically $ swapTMVar state $ return newState
+                  case maybeNum of
+                    Just num -> do
+                           if messageExists num newState then do
+                                                           scan <- getScanListing num $ changeData $ messages!!(map!!(num - 1))
+                                                           return $ Right $ ["+OK " ++ scan ++ ".\r\n"]
+                           else return $ Right $ ["-ERR message " ++ show num ++ " already deleted\r\n"]
+                    Nothing -> do
+                           stat <- popStat state
+                           case stat of
+                             Left err -> return $ Left err
+                             Right hd -> do
+                                       let msgs = dropDeleted newState messages
+                                       resp <- ifoldr (\idx str resp -> do
+                                                         s <- getScanListing (idx + 1) $ changeData $ str
+                                                         r <- resp
+                                                         return $ s:r
+                                                      ) (return [".\r\n"]) msgs
+                                       return $ Right $ hd:resp
 
 getScanListing :: Int -> Text -> IO String
 getScanListing num txData = do
@@ -190,26 +166,25 @@ getScanListing num txData = do
   return $ show num ++ " " ++ show size ++ "\r\n"
                 
 -- POP3 RETR command
-popRetr :: Int -> IO (Either Web3Error String)
-popRetr num = do
-  st <- getPop3State stateFile
-  events <- getMessages
-  case events of
-    Left err -> return $ Left err
-    Right messages ->
-        case st of
-          Left err -> return $ Left err
-          Right oldState -> do
-                  let newState = updatePop3State oldState messages
-                      map = messageMap newState
-                  writePop3State stateFile newState
-                  if messageExists num newState then do
-                                                  let txData = changeData $ messages!!(map!!(num - 1))
-                                                  msg <- decryptMessage $ parseMessage txData
-                                                  size <- messageSize txData
-                                                  let line1 = "+OK " ++ show size ++ " octets\r\n"
-                                                  return $ Right $ line1 ++ msg ++ "\r\n.\r\n"
-                  else return $ Right $ "-ERR messsage " ++ show num ++ " already deleted\r\n"
+popRetr :: InboxState -> Int -> IO (Either Web3Error String)
+popRetr state num = do
+  st <- atomically $ readTMVar state
+  do
+    oldState <- st
+    events <- getMessages state
+    case events of
+      Left err -> return $ Left err
+      Right messages -> do
+                      let newState = updatePop3State oldState messages
+                          map = messageMap newState
+                      atomically $ swapTMVar state $ return newState
+                      if messageExists num newState then do
+                                                      let txData = changeData $ messages!!(map!!(num - 1))
+                                                      msg <- decryptMessage $ parseMessage txData
+                                                      size <- messageSize txData
+                                                      let line1 = "+OK " ++ show size ++ " octets\r\n"
+                                                      return $ Right $ line1 ++ msg ++ "\r\n.\r\n"
+                      else return $ Right $ "-ERR messsage " ++ show num ++ " already deleted\r\n"
 
 -- Returns Nothing on success, error message on failure
 messageExists :: Int -> Pop3State -> Bool
@@ -223,51 +198,48 @@ messageExists num state = (n >= 0) && (n < len) && (not $ del!!(map!!n))
       len = length map
 
 -- POP3 DELE command
-popDele :: Int -> IO (Either Web3Error String)
-popDele num = do
-  st <- getPop3State stateFile
-  events <- getMessages
-  case events of
-    Left err -> return $ Left err
-    Right messages ->
-        case st of
-          Left err -> return $ Left err
-          Right oldState -> do
-                  let newState = updatePop3State oldState messages
-                      map = messageMap newState
-                  writePop3State stateFile newState
-                  if messageExists num newState then do
-                     let pending = pendingDeletion newState
-                         newNewState = newState { pendingDeletion = replaceAtIndex (map!!(num - 1)) True pending }
-                     writePop3State stateFile newNewState
-                     return $ Right $ "+OK message " ++ show num ++ " deleted\r\n"
-                  else return $ Right $ "-ERR message " ++ show num ++ " already deleted\r\n"
+popDele :: InboxState -> Int -> IO (Either Web3Error String)
+popDele state num = do
+  st <- atomically $ readTMVar state
+  do
+    oldState <- st
+    events <- getMessages state
+    case events of
+      Left err -> return $ Left err
+      Right messages -> do
+                      let newState = updatePop3State oldState messages
+                          map = messageMap newState
+                      atomically $ swapTMVar state $ return newState
+                      if messageExists num newState then do
+                                                      let pending = pendingDeletion newState
+                                                          newNewState = newState { pendingDeletion = replaceAtIndex (map!!(num - 1)) True pending }
+                                                      atomically $ swapTMVar state $ return newNewState
+                                                      return $ Right $ "+OK message " ++ show num ++ " deleted\r\n"
+                      else return $ Right $ "-ERR message " ++ show num ++ " already deleted\r\n"
                        
 -- POP3 NOOP command
-popNoop :: IO (Either Web3Error String)
-popNoop = return $ Right "+OK\r\n"
+popNoop :: InboxState -> IO (Either Web3Error String)
+popNoop _ = return $ Right "+OK\r\n"
 
 -- POP3 RSET command
-popRset :: IO (Either Web3Error String)
-popRset = do
-  oldState <- getPop3State stateFile
-  case oldState of
-    Left err -> return $ Left err
-    Right old -> do
-                  let pending = pendingDeletion old
-                      len = length pending
-                      newState = old { pendingDeletion = replicate len False }
-                  writePop3State stateFile newState
-                  popStat
+popRset :: InboxState -> IO (Either Web3Error String)
+popRset state = do
+  st <- atomically $ readTMVar state
+  do
+    oldState <- st
+    let pending = pendingDeletion oldState
+        len = length pending
+        newState = oldState { pendingDeletion = replicate len False }
+    atomically $ swapTMVar state $ return newState
+    popStat state
 
 -- POP3 QUIT command
-popQuit :: IO (Either Web3Error String)
-popQuit = do
-  oldState <- getPop3State stateFile
-  case oldState of
-    Left err -> return $ Left err
-    Right old -> do
-                  let newState = commitDeletions old
-                  writePop3State stateFile newState
-                  return $ Right "+OK\r\n"
+popQuit :: InboxState -> IO (Either Web3Error String)
+popQuit state = do
+  st <- atomically $ readTMVar state
+  do
+    oldState <- st
+    let newState = commitDeletions oldState
+    atomically $ swapTMVar state $ return newState
+    return $ Right "+OK\r\n"
           

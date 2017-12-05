@@ -100,7 +100,7 @@ instance ToJSON Pop3State
 
 instance FromJSON Pop3State
 
-type InboxState = TMVar Pop3State
+type InboxState = TMVar (IO Pop3State)
 
 {-| The states that a session can be in.-}
 data SMTPState
