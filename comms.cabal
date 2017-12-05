@@ -19,11 +19,15 @@ library
                      , Comms.Eth.Scanner
                      , Comms.Eth.Sender
                      , Comms.Common.Util
-                     , Comms.Common.Types
-                     , Comms.SMTP
-                     , Comms.POP3
+                     , Comms.Types
+                     , Comms.SMTP.Server
+                     , Comms.POP3.Server 
   other-modules:       Comms.Eth.Cost
                      , Comms.Eth.Provider
+                     , Comms.SMTP.Handler                     
+                     , Comms.SMTP.State
+                     , Comms.POP3.Handler
+                     , Comms.POP3.State
   build-depends:       base >= 4.7 && < 5
                      , web3 >= 0.5.5.0
                      , RSA >= 2.3.0
@@ -39,10 +43,11 @@ library
                      , directory >= 1.3.0.0
                      , ilist >= 0.3.1.0
                      , network >= 2.6.3.2
-                     , signal >= 0.1.0.4
                      , mtl >= 2.2.1
                      , stm >= 2.4.4.1
                      , regex >= 1.0.1.3
+                     , async >= 2.1.1.1
+                     , unix >= 2.7.2.1
   default-language:    Haskell2010
 
 executable comms
@@ -54,10 +59,11 @@ executable comms
                      , cmdargs
                      , aeson
                      , network
-                     , signal
                      , mtl
                      , stm
                      , regex
+                     , async
+                     , unix
   default-language:    Haskell2010
 
 test-suite comms-test

@@ -4,7 +4,7 @@
 
 module Comms.Eth.Sender where
 
-import           Comms.Common.Types
+import           Comms.Types
 import           Comms.Common.Util
 import           Comms.Eth.AddressBook
 import           Comms.Eth.Cost
@@ -31,7 +31,8 @@ bytesDecode :: T.Text -> BA.Bytes
 {-# INLINE bytesDecode #-}
 bytesDecode = BA.convert . T.encodeUtf8
 
--- Sends a message to the given user
+
+-- | Sends a message to the given user
 sendEmail :: String -> String -> IO (Either Web3Error TxHash)
 sendEmail usr msg = do
   recip <- lookupContact usr
@@ -41,7 +42,8 @@ sendEmail usr msg = do
                ciph <- encrypt msg $ publicKey r
                runUser $ sendMessage contractAddr nopay (inboxAddr r) (BytesD $ bytesDecode $ T.pack ciph) 
 
--- Creates a transaction with the user's ContactCard
+
+{- | Creates a transaction with the user's ContactCard -}
 sendContactCard :: IO (Either Web3Error TxHash)
 sendContactCard = do
   cfg <- getDefaultConfig
