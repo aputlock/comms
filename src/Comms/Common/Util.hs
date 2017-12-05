@@ -21,14 +21,15 @@ import           Data.Maybe
 import qualified Data.Text                     as T
 import qualified Data.Text.Read                as TR
 import           GHC.Generics
-import           Network                       (Socket (..), accept)
+import           Network
 import           Network.Ethereum.Web3.Address
 import           System.Directory
 import           System.IO                     (BufferMode (NoBuffering),
                                                 Handle, hClose, hSetBuffering)
 
 import           Comms.Types
-
+import qualified System.Signal as Sig
+import           Control.Monad          (when)
 -- General Utilities
 fromRight :: Show s => Either s b -> b
 fromRight e =
@@ -159,3 +160,47 @@ maybeArg str =
 {- | The ending character sequence for SMTP and POP3 commands -}
 crlf :: T.Text
 crlf = "\r\n"
+
+runServer
+  :: Bool
+  -> Config
+  -> (Handle -> Config -> t -> IO ())
+  -> (Handle -> Config -> t -> IO ())
+  -> IO ()
+runServer isDebug config smtpHandler pop3Handler = do
+  let smtpPort = fromIntegral $ getSMTPPort config
+  let pop3Port = fromIntegral $ getPOP3Port config
+  when isDebug $ print smtpPort
+  when isDebug $ print pop3Port
+  (smtpSocket, pop3Socket) <- concurrently (listenOn $ PortNumber smtpPort) (listenOn $ PortNumber pop3Port)
+  
+  smtpFinished <- async (bindServer smtpSocket smtpHandler config undefined)
+  pop3Finished <- async (bindServer pop3Socket pop3Handler config undefined)
+  when isDebug $ putStrLn "Listening on both sockets."
+  
+  let sigHandler = (\_ -> serverSigHandler smtpFinished pop3Finished)
+  Sig.installHandler Sig.sigINT sigHandler
+  returnVals <- waitEitherCatch smtpFinished pop3Finished
+  case returnVals of
+    Left smtpEither -> case smtpEither of
+                         Left excpt -> do
+                           when isDebug $ putStrLn "Closing both sockets."
+                           sClose smtpSocket
+                           sClose pop3Socket
+                         Right a -> return a
+    Right pop3Either -> case pop3Either of
+                          Left expt -> do
+                            when isDebug $ putStrLn "Closing both sockets."
+                            sClose pop3Socket
+                            sClose smtpSocket
+                          Right a -> return a
+  when isDebug $ putStrLn "Server Shutting Down..."
+{- TODO(broluwo): Write a unit test to ensure that the sockets are bound and can receive a request.
+similar to `nc -vz 127.0.0.1 987` or `nc -vz 127.0.0.1 587`.
+-}
+-- | Close all the open sockets.
+serverSigHandler :: Async a -> Async a -> IO ()
+serverSigHandler asyncAction1 asyncAction2 = do
+  putStrLn "\nSIGINT received. Cancelling all running threads..."
+  cancel asyncAction1
+  cancel asyncAction2
