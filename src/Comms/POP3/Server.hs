@@ -6,17 +6,17 @@ module Comms.POP3.Server
   ) where
 
 import           Comms.Common.Util
-import           Comms.Types
 import           Comms.Eth.Scanner
-import Comms.POP3.State
-import qualified Comms.POP3.Handler as H
+import qualified Comms.POP3.Handler     as H
+import           Comms.POP3.State
+import           Comms.Types
 
+import           Control.Concurrent.STM
+import           Control.Monad          (forM_)
+import qualified Data.Text              as T
+import qualified Data.Text.Read         as TR
 import           Network
 import           System.IO
-import qualified Data.Text      as T
-import qualified Data.Text.Read as TR
-import           Control.Concurrent.STM
-import           Control.Monad (forM_)
 
 handleConn :: Handle -> Config -> t -> IO ()
 handleConn handle config channel = do
@@ -27,7 +27,8 @@ startSession :: Handle -> IO ()
 startSession handle = do
   putStrLn "-=-=-=-Starting POP3 Session-=-=-=-"
   env <- newEmptyPOP3MVar
-  H.sendReply handle $ POP3Reply OK "pop3.localhost.mail Comms POP3 Server Ready"
+  H.sendReply handle $
+    POP3Reply OK "pop3.localhost.mail Comms POP3 Server Ready"
   sessLoop handle env
 
 sessLoop :: Handle -> POP3MVar -> IO ()

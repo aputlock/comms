@@ -13,10 +13,10 @@ module Comms.SMTP.Handler
   , sendReply
   ) where
 
-import           Comms.Types
 import           Comms.Common.Util
 import qualified Comms.Eth.Sender       as Eth (sendEmail)
 import           Comms.SMTP.State
+import           Comms.Types
 import           Control.Concurrent.STM
 import           Control.Monad          (when)
 import           Data.Monoid            ((<>))
