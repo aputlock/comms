@@ -19,13 +19,14 @@ library
                      , Comms.Eth.Sender
                      , Comms.Common.Util
                      , Comms.Types
-                     , Comms.SMTP
-                     , Comms.POP3
+                     , Comms.SMTP.Server
+                     , Comms.POP3.Server 
   other-modules:       Comms.Eth.Cost
                      , Comms.Eth.Provider
-                     , Comms.SMTP.Handler
-                     , Comms.SMTP.Server
+                     , Comms.SMTP.Handler                     
                      , Comms.SMTP.State
+                     , Comms.POP3.Handler
+                     , Comms.POP3.State
   build-depends:       base >= 4.7 && < 5
                      , web3 >= 0.5.5.0
                      , RSA >= 2.3.0

@@ -6,8 +6,8 @@ import           Comms.Types
 import           Comms.Common.Util
 import           Comms.Eth.Scanner
 import           Comms.Eth.Sender
-import qualified Comms.POP3             as POP3
-import qualified Comms.SMTP             as SMTP
+import qualified Comms.POP3.Server             as POP3
+import qualified Comms.SMTP.Server             as SMTP
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Exception.Base (bracket)
@@ -73,6 +73,6 @@ similar to `nc -vz 127.0.0.1 987` or `nc -vz 127.0.0.1 587`.
 -}
 -- | Close all the open sockets.
 serverSigHandler asyncAction1 asyncAction2 = do
-  putStrLn "\nCancelling"
+  putStrLn "\nSIGINT received. Cancelling all running threads..."
   cancel asyncAction1
   cancel asyncAction2

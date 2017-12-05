@@ -165,3 +165,4 @@ instance Show POP3ReplyIndicator where
   show ERR  = "-ERR"
 
 type POP3MVar = TMVar POP3Session
+type POP3Handler = Handle -> T.Text -> POP3MVar -> IO ()
