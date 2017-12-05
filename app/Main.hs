@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main
   ( main
   ) where
@@ -8,6 +9,7 @@ import           Comms.Eth.Scanner
 import           Comms.Eth.Sender
 import qualified Comms.POP3.Server             as POP3
 import qualified Comms.SMTP.Server             as SMTP
+import qualified Comms.Eth.AddressBook         as AB (importContact)
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Exception.Base (bracket)
@@ -16,30 +18,47 @@ import           Network
 import           System.Console.CmdArgs
 import           System.IO
 import           System.Posix.Signals
-
+import System.Environment
+import qualified Data.Text as T
 -- TODO(broluwo): Consider writing a generator function for creating the config file.
 run =
   RunServerOptions
   { debug = def &= help "Print debugging info about the server"
   , config = def &= args &= typFile
-  } &=
-  program "Comms" &=
-  details
-    [ "Expects the location of the configuration file as an argument to the program."
-    ] &=
+  } &= help "Runs the servers. Expects location of the config file to be provided."
+  &= explicit &= name "run"
+
+importContact = ImportContact
+  { email = def &= typ "EMAIL" &= argPos 0
+  , hash = def &= typ "HASH" &= argPos 1
+  } &= help "Import a contact into a local only address book." &= explicit &= name "import"
+
+commandMode = cmdArgsMode $ modes [run &= auto, importContact] &=
+  program "comms" &=
   help "Decentralized email server." &=
   helpArg [explicit, name "h", name "help"] &=
   summary "Comms v0.0.1, (c) Brian Oluwo, Andrew Putlock"
-
-commandMode = cmdArgsMode $ modes [run]
 
 {-| General flow looks like, parse the command options bind the servers to their sockets and for every connection spin up a green thread to handle that session and re-register the handler to accept new connections.
 -}
 main :: IO ()
 main = do
-  opts <- cmdArgsRun $ cmdArgsMode $ run
-  let isDebug = getDebug opts
-  config <- getConfigFromOptions opts
+  args <- getArgs
+  case args of
+    [] -> putStrLn "Please use the -h flag on the executable to see the usage text."
+    _ -> do
+      opts <- cmdArgsRun $ commandMode
+      case opts of
+        RunServerOptions debug configPath -> do
+          config <- getConfig configPath
+          runServer debug config
+        ImportContact email hash -> do
+          AB.importContact email $ T.pack hash
+          putStrLn "Imported contact."
+  
+
+runServer :: Bool -> Config -> IO ()
+runServer isDebug config = do
   let smtpPort = fromIntegral $ getSMTPPort config
   let pop3Port = fromIntegral $ getPOP3Port config
   when isDebug $ putStrLn $ show smtpPort

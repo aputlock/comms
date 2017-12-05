@@ -21,9 +21,13 @@ import           System.IO                     (Handle (..))
 
 -- | Defines the data type for commandline arguments.
 data Options = RunServerOptions
-  { config :: FilePath -- ^ Defines the location of the configuration file.
-  , debug  :: Bool -- ^ Enables debug printing.
-  } deriving (Data, Typeable, Show, Eq)
+  {
+    debug  :: Bool -- ^ Enables debug printing.
+  , config :: FilePath -- ^ Defines the location of the configuration file.
+  
+  }
+  | ImportContact {email :: String, hash :: String}
+  deriving (Data, Typeable, Show, Eq)
 
 -- | Defines the schema for the config file.
 data Config = Config
