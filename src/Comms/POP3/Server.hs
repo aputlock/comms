@@ -20,53 +20,54 @@ import           System.IO
 
 handleConn :: Handle -> Config -> t -> IO ()
 handleConn handle config channel = do
-  startSession handle
+  inboxState <- newEmptyInboxState
+  startSession handle inboxState
   putStrLn "-=-=-=-Closing POP3 Session-=-=-=-"
 
-startSession :: Handle -> IO ()
-startSession handle = do
+startSession :: Handle -> InboxState -> IO ()
+startSession handle inboxState = do
   putStrLn "-=-=-=-Starting POP3 Session-=-=-=-"
   env <- newEmptyPOP3MVar
   H.sendReply handle $
     POP3Reply OK "pop3.localhost.mail Comms POP3 Server Ready"
-  sessLoop handle env
+  sessLoop handle env inboxState
 
-sessLoop :: Handle -> POP3MVar -> IO ()
-sessLoop handle env = do
+sessLoop :: Handle -> POP3MVar -> InboxState -> IO ()
+sessLoop handle env inboxState = do
   putStrLn "Top of POP3 sessLoop"
   line <- hGetLine handle
   let t = T.pack line
   case verb t of
     "CAPA" -> do
-      H.capa handle t env
-      sessLoop handle env
+      H.capa handle t env inboxState
+      sessLoop handle env inboxState
     "USER" -> do
-      H.user handle t env
-      sessLoop handle env
+      H.user handle t env inboxState
+      sessLoop handle env inboxState
     "PASS" -> do
-      H.pass handle t env
-      sessLoop handle env
+      H.pass handle t env inboxState
+      sessLoop handle env inboxState
     "STAT" -> do
-      H.stat handle t env
-      sessLoop handle env
+      H.stat handle t env inboxState
+      sessLoop handle env inboxState
     "LIST" -> do
-      H.list handle t env
-      sessLoop handle env
+      H.list handle t env inboxState
+      sessLoop handle env inboxState
     "RETR" -> do
-      H.retr handle t env
-      sessLoop handle env
+      H.retr handle t env inboxState
+      sessLoop handle env inboxState
     "DELE" -> do
-      H.dele handle t env
-      sessLoop handle env
+      H.dele handle t env inboxState
+      sessLoop handle env inboxState
     "QUIT" -> do
-      H.quit handle t env
+      H.quit handle t env inboxState
       return ()
     "NOOP" -> do
-      H.noop handle t env
-      sessLoop handle env
+      H.noop handle t env inboxState
+      sessLoop handle env inboxState
     "RSET" -> do
-      H.rset handle t env
-      sessLoop handle env
+      H.rset handle t env inboxState
+      sessLoop handle env inboxState
     _ -> do
       H.sendReply handle (POP3Reply ERR "command not supported")
-      sessLoop handle env
+      sessLoop handle env inboxState

@@ -27,31 +27,31 @@ import           Network
 import           System.IO
 
 capa :: POP3Handler
-capa handle t mvar = do
+capa handle t mvar inboxState = do
   sendReply handle $ POP3Reply OK "Capability list follows"
   sendPreFormReply handle "USER\r\n"
   sendPreFormReply handle ".\r\n"
 
 {- | Store the passed in user in the MVar-}
 user :: POP3Handler
-user handle cmd mvar = do
+user handle cmd mvar inboxState = do
   let rhs = arg cmd
   putStrLn ("Supplied User is " ++ T.unpack rhs)
   updateUser mvar rhs
   pop3OK handle
 
 pass :: POP3Handler
-pass handle cmd mvar = do
+pass handle cmd mvar inboxState = do
   let rhs = arg cmd
   putStrLn ("Supplied Pass is " ++ T.unpack rhs)
   updatePass mvar rhs
   pop3OK handle
 
 stat :: POP3Handler
-stat handle t mvar = handleNoArg handle popStat
+stat handle t mvar inboxState = handleNoArg handle popStat
 
 list :: POP3Handler
-list handle t mvar =
+list handle t mvar inboxState =
   case maybeArg t of
     Nothing -> do
       either <- popList Nothing
@@ -69,19 +69,19 @@ list handle t mvar =
             Right s  -> forM_ s $ sendPreFormReply handle
 
 retr :: POP3Handler
-retr handle t mvar = handleMaybeArg handle t popRetr
+retr handle t mvar inboxState = handleMaybeArg handle t popRetr
 
 dele :: POP3Handler
-dele handle t mvar = handleMaybeArg handle t popDele
+dele handle t mvar inboxState = handleMaybeArg handle t popDele
 
 quit :: POP3Handler
-quit handle t mvar = handleNoArg handle popQuit
+quit handle t mvar inboxState = handleNoArg handle popQuit
 
 noop :: POP3Handler
-noop handle t mvar = handleNoArg handle popNoop
+noop handle t mvar inboxState = handleNoArg handle popNoop
 
 rset :: POP3Handler
-rset handle t mvar = handleNoArg handle popRset
+rset handle t mvar inboxState = handleNoArg handle popRset
 
 sendPreFormReply = hPutStr
 

@@ -99,6 +99,8 @@ instance ToJSON Pop3State
 
 instance FromJSON Pop3State
 
+type InboxState = TMVar Pop3State
+
 {-| The states that a session can be in.-}
 data SMTPState
   = Unknown
@@ -165,4 +167,4 @@ instance Show POP3ReplyIndicator where
   show ERR  = "-ERR"
 
 type POP3MVar = TMVar POP3Session
-type POP3Handler = Handle -> T.Text -> POP3MVar -> IO ()
+type POP3Handler = Handle -> T.Text -> POP3MVar -> InboxState -> IO ()

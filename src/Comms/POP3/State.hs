@@ -39,3 +39,5 @@ updatePass mvar newPass = do
     Just oldSess -> do
       putStrLn "updatePass - Just Case."
       overwritePOP3Session mvar (oldSess {pass = newPass})
+
+newEmptyInboxState = atomically newEmptyTMVar      
