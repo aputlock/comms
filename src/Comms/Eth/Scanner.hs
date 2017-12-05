@@ -113,7 +113,7 @@ popStat state = do
       Right messages -> do
                   let newState = updatePop3State oldState messages
                       msgs = dropDeleted newState messages
-                  size <- foldr (\el acc -> do
+                  size <- foldr (\(_, el) acc -> do
                                    a <- acc
                                    size <- messageSize $ changeData el
                                    return $ a + size
@@ -121,12 +121,45 @@ popStat state = do
                   atomically $ swapTMVar state $ return newState
                   return $ Right $ "+OK " ++ (show $ length msgs) ++ " " ++ show size ++ "\r\n"
                        
-dropDeleted :: Pop3State -> [a] -> [a]
-dropDeleted state lst = fmap (\n -> lst!!n) ind
+dropDeleted :: Pop3State -> [a] -> [(Int, a)]
+dropDeleted state lst = fmap (\(idx, n) -> (idx, lst!!n)) ind
     where
       map = messageMap state
       del = pendingDeletion state
-      ind = foldr (\e acc -> if not $ del!!e then e:acc else acc) [] map
+      ind = ifoldr (\idx e acc -> if not $ del!!e then (idx, e):acc else acc) [] map
+
+
+-- POP3 UIDL command
+popUidl :: InboxState -> Maybe Int -> IO (Either Web3Error [String])
+popUidl state maybeNum = do
+  st <- atomically $ readTMVar state
+  do
+    oldState <- st
+    events <- getMessages state
+    case events of
+      Left err -> return $ Left err
+      Right messages -> do
+                  let newState = updatePop3State oldState messages
+                      map = messageMap newState
+                  atomically $ swapTMVar state $ return newState
+                  case maybeNum of
+                    Just num -> do
+                           if messageExists num newState then do
+                                                           let scan = changeTransactionHash $ messages!!(map!!(num - 1))
+                                                           return $ Right $ ["+OK " ++ T.unpack scan ++ ".\r\n"]
+                           else return $ Right $ ["-ERR message " ++ show num ++ " already deleted\r\n"]
+                    Nothing -> do
+                           stat <- popStat state
+                           case stat of
+                             Left err -> return $ Left err
+                             Right hd -> do
+                                       let msgs = dropDeleted newState messages
+                                       resp <- foldr (\(idx, str) resp -> do
+                                                         s <- return $ show (idx + 1) ++ " " ++ (T.unpack $ changeTransactionHash $ str) ++ "\r\n"
+                                                         r <- resp
+                                                         return $ s:r
+                                                      ) (return [".\r\n"]) msgs
+                                       return $ Right $ hd:resp
 
 -- POP3 LIST command
 popList :: InboxState -> Maybe Int -> IO (Either Web3Error [String])
@@ -153,7 +186,7 @@ popList state maybeNum = do
                              Left err -> return $ Left err
                              Right hd -> do
                                        let msgs = dropDeleted newState messages
-                                       resp <- ifoldr (\idx str resp -> do
+                                       resp <- foldr (\(idx, str) resp -> do
                                                          s <- getScanListing (idx + 1) $ changeData $ str
                                                          r <- resp
                                                          return $ s:r
@@ -242,4 +275,3 @@ popQuit state = do
     let newState = commitDeletions oldState
     atomically $ swapTMVar state $ return newState
     return $ Right "+OK\r\n"
-          

@@ -6,6 +6,7 @@ module Comms.POP3.Handler
   , Comms.POP3.Handler.pass
   , stat
   , list
+  , uidl
   , retr
   , dele
   , quit
@@ -30,6 +31,7 @@ capa :: POP3Handler
 capa handle t mvar inboxState = do
   sendReply handle $ POP3Reply OK "Capability list follows"
   sendPreFormReply handle "USER\r\n"
+  sendPreFormReply handle "UIDL\r\n"
   sendPreFormReply handle ".\r\n"
 
 {- | Store the passed in user in the MVar-}
@@ -64,6 +66,24 @@ list handle t mvar inboxState =
         Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
         Right (num, _) -> do
           e <- popList inboxState $ Just num
+          case e of
+            Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
+            Right s  -> forM_ s $ sendPreFormReply handle
+
+uidl :: POP3Handler
+uidl handle t mvar inboxState =
+  case maybeArg t of
+    Nothing -> do
+      either <- popUidl inboxState Nothing
+      case either of
+        Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
+        Right s  -> forM_ s $ sendPreFormReply handle
+    Just parsed -> do
+      let eitherNum = TR.decimal parsed
+      case eitherNum of
+        Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
+        Right (num, _) -> do
+          e <- popUidl inboxState $ Just num
           case e of
             Left err -> sendReply handle (POP3Reply ERR $ T.pack $ show err)
             Right s  -> forM_ s $ sendPreFormReply handle

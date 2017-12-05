@@ -59,6 +59,9 @@ sessLoop handle env inboxState = do
     "LIST" -> do
       H.list handle t env inboxState
       sessLoop handle env inboxState
+    "UIDL" -> do
+      H.uidl handle t env inboxState
+      sessLoop handle env inboxState
     "RETR" -> do
       H.retr handle t env inboxState
       sessLoop handle env inboxState
