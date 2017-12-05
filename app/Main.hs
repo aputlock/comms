@@ -17,7 +17,7 @@ import           Control.Monad          (when)
 import           Network
 import           System.Console.CmdArgs
 import           System.IO
-import           System.Posix.Signals
+import qualified System.Signal as Sig
 import System.Environment
 import qualified Data.Text as T
 -- TODO(broluwo): Consider writing a generator function for creating the config file.
@@ -69,9 +69,8 @@ runServer isDebug config = do
   pop3Finished <- async (bindServer pop3Socket POP3.handleConn config undefined)
   when isDebug $ putStrLn "Listening on both sockets."
   
-  let sigHandler = (serverSigHandler smtpFinished pop3Finished)
-  installHandler keyboardSignal (Catch sigHandler) Nothing
-
+  let sigHandler = (\_ -> (serverSigHandler smtpFinished pop3Finished))
+  Sig.installHandler Sig.sigINT sigHandler
   returnVals <- waitEitherCatch smtpFinished pop3Finished
   case returnVals of
     Left smtpEither -> case smtpEither of
@@ -91,6 +90,7 @@ runServer isDebug config = do
 similar to `nc -vz 127.0.0.1 987` or `nc -vz 127.0.0.1 587`.
 -}
 -- | Close all the open sockets.
+serverSigHandler :: Async a -> Async a -> IO ()
 serverSigHandler asyncAction1 asyncAction2 = do
   putStrLn "\nSIGINT received. Cancelling all running threads..."
   cancel asyncAction1
