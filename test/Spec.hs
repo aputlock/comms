@@ -53,7 +53,7 @@ ropstenTests =
     ]
 
 serverTests :: TestTree
-serverTests = testGroup "Server Tests" [connectionTests]
+serverTests = testGroup "Server Tests" []
 
 tearDownServer serverAsync = do
   res <- poll serverAsync
