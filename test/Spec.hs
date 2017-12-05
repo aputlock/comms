@@ -3,7 +3,7 @@
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Comms.Common.Types
+import Comms.Types
 import Comms.Common.Util
 import Comms.Eth.AddressBook
 import Comms.Eth.Sender
