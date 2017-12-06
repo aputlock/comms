@@ -67,9 +67,6 @@ getConfig path = do
     Left err  -> error $ "bad config: " ++ err
     Right cfg -> return cfg
 
-getConfigFromOptions :: Options -> IO Config
-getConfigFromOptions opt = getConfig (config opt)
-
 writeConfig :: FilePath -> Config -> IO ()
 writeConfig path cfg = B.writeFile path $ encode cfg
 

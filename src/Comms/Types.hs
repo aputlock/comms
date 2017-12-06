@@ -23,10 +23,9 @@ import           System.IO                     (Handle (..))
 data Options = RunServerOptions
   {
     debug  :: Bool -- ^ Enables debug printing.
-  , config :: FilePath -- ^ Defines the location of the configuration file.
-  
   }
   | ImportContact {email :: String, hash :: String}
+  | PublishContact {}
   deriving (Data, Typeable, Show, Eq)
 
 -- | Defines the schema for the config file.

@@ -8,6 +8,7 @@ import           Comms.Common.Util
 import qualified Comms.POP3.Server             as POP3
 import qualified Comms.SMTP.Server             as SMTP
 import qualified Comms.Eth.AddressBook         as AB (importContact)
+import qualified Comms.Eth.Sender              as S (sendContactCard)
 import           System.Console.CmdArgs
 import           System.Environment
 import qualified Data.Text                     as T
@@ -15,8 +16,7 @@ import qualified Data.Text                     as T
 run =
   RunServerOptions
   { debug = def &= help "Print debugging info about the server"
-  , config = def &= args &= typFile
-  } &= help "Runs the servers. Expects location of the config file to be provided."
+  } &= help "Runs the servers."
   &= explicit &= name "run"
 
 importContact = ImportContact
@@ -24,7 +24,10 @@ importContact = ImportContact
   , hash = def &= typ "HASH" &= argPos 1
   } &= help "Import a contact into a local only address book." &= explicit &= name "import"
 
-commandMode = cmdArgsMode $ modes [run &= auto, importContact] &=
+publishContact = PublishContact
+  {} &= help "Publish contact card onto the public transaction log." &= explicit &= name "publish"
+
+commandMode = cmdArgsMode $ modes [run &= auto, importContact, publishContact] &=
   program "comms" &=
   help "Decentralized email server." &=
   helpArg [explicit, name "h", name "help"] &=
@@ -40,9 +43,14 @@ main = do
     _ -> do
       opts <- cmdArgsRun $ commandMode
       case opts of
-        RunServerOptions debug configPath -> do
-          config <- getConfig configPath
+        RunServerOptions debug -> do
+          config <- getDefaultConfig
           runServer debug config SMTP.handleConn POP3.handleConn
         ImportContact email hash -> do
           AB.importContact email $ T.pack hash
           putStrLn "Imported contact."
+        PublishContact -> do
+          maybeHash <- S.sendContactCard
+          case maybeHash of
+            Left err -> putStrLn $ show err
+            Right hash -> putStrLn $ "Posted contact card: " ++ T.unpack hash
