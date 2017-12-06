@@ -26,8 +26,9 @@ handleConn handle config channel = do
     st <- atomically $ takeTMVar inboxState
     do
       state <- st
+      file <- stateFile
       let storedState = state { pendingDeletion = [] }
-      writePop3State stateFile storedState
+      writePop3State file storedState
       putStrLn "-=-=-=-Closing POP3 Session-=-=-=-"
 
 startSession :: Handle -> InboxState -> IO ()

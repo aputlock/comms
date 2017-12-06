@@ -77,9 +77,9 @@ getMessages state = do
   st <- atomically $ readTMVar state
   do
     curState <- st
-    contract <- getContract contractFile
     config <- getDefaultConfig
-    let topic0 = eventHash "Message" contract
+    let contract = getContract contractFile
+        topic0 = eventHash "Message" contract
         topic1 = T.append "0x" . T.justifyRight 64 '0' . toText . walletAddr $ config
     runUser $ getLogs $ Filter Nothing (Just $ [Just topic0, Just topic1]) (Just $ startBlock curState) Nothing
 

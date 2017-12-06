@@ -23,10 +23,9 @@ import           System.IO                     (Handle (..))
 data Options = RunServerOptions
   {
     debug  :: Bool -- ^ Enables debug printing.
-  , config :: FilePath -- ^ Defines the location of the configuration file.
-  
   }
   | ImportContact {email :: String, hash :: String}
+  | PublishContact {}
   deriving (Data, Typeable, Show, Eq)
 
 -- | Defines the schema for the config file.
@@ -35,7 +34,6 @@ data Config = Config
   , smtpPort   :: Int -- ^ The port the SMTP server will run on.
   , pop3Port   :: Int -- ^ The port the POP3 server will run on.
   , serverURL  :: Maybe String -- ^ The URL of the Ethereum node. If not provided, defaults to localhost.
-  , keyFile    :: Maybe FilePath -- ^ The location of the RSA keypair file.
   } deriving (Show, Generic)
 
 instance FromJSON Config

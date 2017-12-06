@@ -25,9 +25,6 @@ import           Network.Ethereum.Web3.Types
 
 import           System.Directory
 
-contactFile :: String
-contactFile = "contacts.json"
-
 -- Fetches the address book at the given path
 getContacts :: FilePath -> IO [Contact]
 getContacts path = do
@@ -43,7 +40,7 @@ getContacts path = do
 -- Fetches the ContactCard associated with the given email address
 lookupContact :: String -> IO (Maybe ContactCard)
 lookupContact email = do
-  contacts <- getContacts contactFile
+  contacts <- getContacts =<< contactFile
   return $ case find (\x -> emailAddr x == email) contacts of
              Nothing -> Nothing
              Just contact -> Just $ contactInfo contact
@@ -57,8 +54,8 @@ addContact path contact = do
 -- Extracts the Text corresponding to the ContactCard
 parseContactCard :: T.Text -> IO (Either Web3Error ContactCard)
 parseContactCard txt = do
-  contract <- getContract contractFile
-  let method = methodHash "registerUser" contract
+  let contract = getContract contractFile
+      method = methodHash "registerUser" contract
       args = fromJust $ T.stripPrefix method txt 
       offset = 2 * (fst $ fromRight $ TR.hexadecimal (T.take 64 args))
       len = 2 * (fst $ fromRight $ TR.hexadecimal $ T.take 64 (T.drop offset args))
@@ -85,9 +82,10 @@ importContact :: String -> TxHash -> IO ()
 importContact email hash = do
   card <- fetchContactCard hash
   contact <- lookupContact email
+  file <- contactFile
   case contact of
     Just _ -> error $ "Contact already exists with email address: " ++ email
     Nothing ->
         case card of
           Left err -> error $ show err
-          Right crd -> addContact contactFile $ Contact email hash crd
+          Right crd -> addContact file $ Contact email hash crd

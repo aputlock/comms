@@ -4,28 +4,22 @@ module Main
   ) where
 
 import           Comms.Types
-import           Comms.Common.Util
-import           Comms.Eth.Scanner
-import           Comms.Eth.Sender
+import           Comms.Common.Util             (configFolder, configFile, getDefaultConfig, writeConfig, runServer, fromRight)
 import qualified Comms.POP3.Server             as POP3
 import qualified Comms.SMTP.Server             as SMTP
 import qualified Comms.Eth.AddressBook         as AB (importContact)
-import           Control.Concurrent
-import           Control.Concurrent.Async
-import           Control.Exception.Base (bracket)
+import qualified Comms.Eth.Sender              as S (sendContactCard)
 import           Control.Monad          (when)
-import           Network
 import           System.Console.CmdArgs
-import           System.IO
-import           System.Posix.Signals
-import System.Environment
-import qualified Data.Text as T
+import           System.Environment
+import           System.Directory
+import qualified Data.Text                     as T
+import           Network.Ethereum.Web3.Address
 -- TODO(broluwo): Consider writing a generator function for creating the config file.
 run =
   RunServerOptions
   { debug = def &= help "Print debugging info about the server"
-  , config = def &= args &= typFile
-  } &= help "Runs the servers. Expects location of the config file to be provided."
+  } &= help "Runs the servers."
   &= explicit &= name "run"
 
 importContact = ImportContact
@@ -33,7 +27,10 @@ importContact = ImportContact
   , hash = def &= typ "HASH" &= argPos 1
   } &= help "Import a contact into a local only address book." &= explicit &= name "import"
 
-commandMode = cmdArgsMode $ modes [run &= auto, importContact] &=
+publishContact = PublishContact
+  {} &= help "Publish contact card onto the public transaction log." &= explicit &= name "publish"
+
+commandMode = cmdArgsMode $ modes [run &= auto, importContact, publishContact] &=
   program "comms" &=
   help "Decentralized email server." &=
   helpArg [explicit, name "h", name "help"] &=
@@ -48,50 +45,38 @@ main = do
     [] -> putStrLn "Please use the -h flag on the executable to see the usage text."
     _ -> do
       opts <- cmdArgsRun $ commandMode
+      setupFolder
       case opts of
-        RunServerOptions debug configPath -> do
-          config <- getConfig configPath
-          runServer debug config
+        RunServerOptions debug -> do
+          config <- getDefaultConfig
+          runServer debug config SMTP.handleConn POP3.handleConn
         ImportContact email hash -> do
           AB.importContact email $ T.pack hash
           putStrLn "Imported contact."
-  
-
-runServer :: Bool -> Config -> IO ()
-runServer isDebug config = do
-  let smtpPort = fromIntegral $ getSMTPPort config
-  let pop3Port = fromIntegral $ getPOP3Port config
-  when isDebug $ putStrLn $ show smtpPort
-  when isDebug $ putStrLn $ show pop3Port
-  (smtpSocket, pop3Socket) <- concurrently (listenOn $ PortNumber smtpPort) (listenOn $ PortNumber pop3Port)
-  
-  smtpFinished <- async (bindServer smtpSocket SMTP.handleConn config undefined)
-  pop3Finished <- async (bindServer pop3Socket POP3.handleConn config undefined)
-  when isDebug $ putStrLn "Listening on both sockets."
-  
-  let sigHandler = (serverSigHandler smtpFinished pop3Finished)
-  installHandler keyboardSignal (Catch sigHandler) Nothing
-
-  returnVals <- waitEitherCatch smtpFinished pop3Finished
-  case returnVals of
-    Left smtpEither -> case smtpEither of
-                         Left excpt -> do
-                           when isDebug $ putStrLn "Closing both sockets."
-                           sClose smtpSocket
-                           sClose pop3Socket
-                         Right a -> return a
-    Right pop3Either -> case pop3Either of
-                          Left expt -> do
-                            when isDebug $ putStrLn "Closing both sockets."
-                            sClose pop3Socket
-                            sClose smtpSocket
-                          Right a -> return a
-  when isDebug $ putStrLn "Server Shutting Down..."
-{- TODO(broluwo): Write a unit test to ensure that the sockets are bound and can receive a request.
-similar to `nc -vz 127.0.0.1 987` or `nc -vz 127.0.0.1 587`.
--}
--- | Close all the open sockets.
-serverSigHandler asyncAction1 asyncAction2 = do
-  putStrLn "\nSIGINT received. Cancelling all running threads..."
-  cancel asyncAction1
-  cancel asyncAction2
+        PublishContact -> do
+          maybeHash <- S.sendContactCard
+          case maybeHash of
+            Left err -> putStrLn $ show err
+            Right hash -> putStrLn $ "Posted contact card: " ++ T.unpack hash
+                         
+setupFolder :: IO ()
+setupFolder = do
+  createDirectoryIfMissing True =<< configFolder
+  configExists <- doesFileExist =<< configFile
+  when (not configExists) (do
+                            putStrLn "Ethereum wallet address: "
+                            walletStr <- getLine
+                            let wallet = fromRight $ fromText $ T.pack walletStr :: Address
+                            putStrLn "SMTP port: "
+                            smtpPortStr <- getLine
+                            let smtpPort = read smtpPortStr :: Int
+                            putStrLn "POP3 port: "
+                            pop3PortStr <- getLine
+                            let pop3Port = read pop3PortStr :: Int
+                            putStrLn "Ethereum node URL (blank for http://localhost:8545):"
+                            nodeURLStr <- getLine
+                            let nodeURL = if nodeURLStr == "" then Nothing else Just nodeURLStr
+                            let config = Config wallet smtpPort pop3Port nodeURL
+                            file <- configFile
+                            writeConfig file config
+                          )
