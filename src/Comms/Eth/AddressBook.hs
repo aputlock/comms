@@ -57,8 +57,8 @@ addContact path contact = do
 -- Extracts the Text corresponding to the ContactCard
 parseContactCard :: T.Text -> IO (Either Web3Error ContactCard)
 parseContactCard txt = do
-  contract <- getContract contractFile
-  let method = methodHash "registerUser" contract
+  let contract = getContract contractFile
+      method = methodHash "registerUser" contract
       args = fromJust $ T.stripPrefix method txt 
       offset = 2 * (fst $ fromRight $ TR.hexadecimal (T.take 64 args))
       len = 2 * (fst $ fromRight $ TR.hexadecimal $ T.take 64 (T.drop offset args))

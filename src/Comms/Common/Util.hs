@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Comms.Common.Util
   ( module Comms.Common.Util
@@ -13,9 +14,11 @@ import           Data.Aeson
 import           Data.ASN1.BinaryEncoding
 import           Data.ASN1.Encoding
 import           Data.ASN1.Object
+import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as B
 import qualified Data.ByteString.Lazy.Char8    as C
 import           Data.Char
+import           Data.FileEmbed
 import           Data.List
 import           Data.Maybe
 import qualified Data.Text                     as T
@@ -55,8 +58,8 @@ defaultConfig = "config.json"
 defaultKeyFile :: String
 defaultKeyFile = "rsa.key"
 
-contractFile :: String
-contractFile = "solidity/contract.json"
+contractFile :: BS.ByteString
+contractFile = $(embedFile "solidity/contract.json")
 
 getDefaultConfig :: IO Config
 getDefaultConfig = getConfig defaultConfig

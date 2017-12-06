@@ -48,8 +48,8 @@ sendContactCard :: IO (Either Web3Error TxHash)
 sendContactCard = do
   cfg <- getDefaultConfig
   priv <- getKeyPair defaultKeyFile
-  contract <- getContract contractFile
-  let contactCard = ContactCard { inboxAddr = walletAddr cfg, publicKey = private_pub priv }
+  let contract = getContract contractFile
+      contactCard = ContactCard { inboxAddr = walletAddr cfg, publicKey = private_pub priv }
       builder = AT.encodeToTextBuilder contactCard
       lazy = TLB.toLazyText builder
       bytes = bytesDecode $ TL.toStrict lazy

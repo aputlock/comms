@@ -12,6 +12,7 @@ import           Network.Ethereum.Web3.TH
 import           Network.Ethereum.Web3.Types
 
 import           Data.Aeson
+import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as B
 import           Data.List
 import           Data.Maybe
@@ -48,12 +49,13 @@ textToWei txt =
     Right t  -> fst $ head $ readHex $ drop 2 $ T.unpack t
 
 -- Returns parsed contract abi at path
-getContract :: FilePath -> IO ContractABI
-getContract path = do
-  d <- (eitherDecode <$> (B.readFile path)) :: IO (Either String ContractABI)
+getContract :: BS.ByteString -> ContractABI
+getContract file =
   case d of
     Left err  -> error $ "bad contract: " ++ err
-    Right cfg -> return cfg
+    Right cfg -> cfg
+  where
+    d = eitherDecode $ B.fromStrict file :: Either String ContractABI
 
 methodHash :: String -> ContractABI -> Text
 methodHash methodName contract = methodId $ findDecl methodName $ unABI contract
