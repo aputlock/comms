@@ -3,6 +3,7 @@
 module Comms.POP3.State where
 
 import           Comms.Types
+import           Comms.Common.Util
 import           Control.Concurrent.STM
 import qualified Data.ByteString.Lazy          as B
 import           Data.Monoid            ((<>))
@@ -48,13 +49,10 @@ updatePass mvar newPass = do
       overwritePOP3Session mvar (oldSess {pass = newPass})
 
 newEmptyInboxState = atomically $ newTMVar $ do
-                       eitherState <- getPop3State stateFile
+                       eitherState <- getPop3State =<< stateFile
                        case eitherState of
                          Left err -> error $ show err
                          Right state -> return state
-
-stateFile :: FilePath
-stateFile = "state.json"
 
 -- Gets pop3 state from disk or generates a new one
 getPop3State :: FilePath -> IO (Either Web3Error Pop3State)

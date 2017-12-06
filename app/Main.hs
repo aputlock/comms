@@ -11,6 +11,7 @@ import qualified Comms.Eth.AddressBook         as AB (importContact)
 import qualified Comms.Eth.Sender              as S (sendContactCard)
 import           System.Console.CmdArgs
 import           System.Environment
+import           System.Directory
 import qualified Data.Text                     as T
 -- TODO(broluwo): Consider writing a generator function for creating the config file.
 run =
@@ -38,6 +39,7 @@ commandMode = cmdArgsMode $ modes [run &= auto, importContact, publishContact] &
 main :: IO ()
 main = do
   args <- getArgs
+  createDirectoryIfMissing True =<< configFolder
   case args of
     [] -> putStrLn "Please use the -h flag on the executable to see the usage text."
     _ -> do

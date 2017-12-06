@@ -66,6 +66,7 @@ executable comms
                      , async
                      , text
                      , signal
+                     , directory
   default-language:    Haskell2010
 
 test-suite comms-test

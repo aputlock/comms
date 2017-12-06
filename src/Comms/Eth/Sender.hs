@@ -47,7 +47,7 @@ sendEmail usr msg = do
 sendContactCard :: IO (Either Web3Error TxHash)
 sendContactCard = do
   cfg <- getDefaultConfig
-  priv <- getKeyPair defaultKeyFile
+  priv <- getKeyPair =<< keyFile
   let contract = getContract contractFile
       contactCard = ContactCard { inboxAddr = walletAddr cfg, publicKey = private_pub priv }
       builder = AT.encodeToTextBuilder contactCard

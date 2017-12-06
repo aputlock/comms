@@ -52,17 +52,34 @@ hexToAscii txt =
     str = fmap (chr . fst . fromRight . TR.hexadecimal) bytes
 
 -- Config Utilities
-defaultConfig :: String
-defaultConfig = "config.json"
+configFolder :: IO FilePath
+configFolder = getXdgDirectory XdgConfig "comms"
 
-defaultKeyFile :: String
-defaultKeyFile = "rsa.key"
+configFile :: IO FilePath
+configFile = do
+  basePath <- configFolder
+  return $ basePath ++ "/config.json"
+
+keyFile :: IO FilePath
+keyFile = do
+  basePath <- configFolder
+  return $ basePath ++ "/rsa.key"
+
+stateFile :: IO FilePath
+stateFile = do
+  basePath <- configFolder
+  return $ basePath ++ "/state.json"
+
+contactFile :: IO FilePath
+contactFile = do
+  basePath <- configFolder
+  return $ basePath ++ "/contacts.json"
 
 contractFile :: BS.ByteString
 contractFile = $(embedFile "solidity/contract.json")
 
 getDefaultConfig :: IO Config
-getDefaultConfig = getConfig defaultConfig
+getDefaultConfig = getConfig =<< configFile
 
 getConfig :: FilePath -> IO Config
 getConfig path = do
@@ -111,7 +128,7 @@ decrypt ciph key = C.unpack $ fromRight $ RSA.decrypt key $ C.pack ciph
 decryptMessage :: String -> IO String
 decryptMessage ciph = do
   cfg <- getDefaultConfig
-  key <- getKeyPair $ fromMaybe "rsa.key" $ keyFile cfg
+  key <- getKeyPair =<< keyFile
   return $ decrypt ciph key
 
 getDebug :: Options -> Bool
