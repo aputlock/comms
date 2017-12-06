@@ -30,6 +30,7 @@ import           System.IO                     (BufferMode (NoBuffering),
 import           Comms.Types
 import qualified System.Signal as Sig
 import           Control.Monad          (when)
+    
 -- General Utilities
 fromRight :: Show s => Either s b -> b
 fromRight e =
@@ -76,8 +77,14 @@ writeKeyPair path key = B.writeFile path $ encodeASN1 DER $ toASN1 key []
 
 getKeyPair :: FilePath -> IO PrivateKey
 getKeyPair path = do
+  exists <- doesFileExist path
+  when (not exists) (do
+                      pair <- genKeyPair
+                      writeKeyPair path pair
+                    )
   bytes <- B.readFile path
   return $ fst $ fromRight $ fromASN1 $ fromRight $ decodeASN1 DER bytes
+    
 
 genKeyPair :: IO PrivateKey
 genKeyPair = do
