@@ -67,6 +67,7 @@ executable comms
                      , text
                      , signal
                      , directory
+                     , web3
   default-language:    Haskell2010
 
 test-suite comms-test
