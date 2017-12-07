@@ -1,4 +1,4 @@
-# comms [![Build Status](https://travis-ci.com/aputlock/comms.svg?token=su2fqvpmA5RE6UXKS1zp&branch=master)](https://travis-ci.com/aputlock/comms)
+# comms [![Build Status](https://api.travis-ci.org/aputlock/comms.svg?branch=master)](https://travis-ci.org/aputlock/comms)
 Sending e-mail over the Ethereum blockchain. Hopefully, covertly.
 ## Installation
 Clone this repo and then with [stack](https://www.haskellstack.org/) do ```$ stack install comms```
